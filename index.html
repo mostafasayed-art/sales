@@ -79,12 +79,12 @@ const tgt=b=>{const t=cfg.targets[month]||{};return b==='all'?cfg.branches.reduc
 const CH=['dine','take','del','cat'],CL={dine:'Dine in',take:'Take away',del:'Delivery',cat:'Catering'};
 function calc(b){
   const r=rows.filter(x=>b==='all'||x.branch===b),D=dim(),T=tgt(b),by={};
-  const ch={};CH.forEach(k=>ch[k]={s:0,n:0});let cov=0;
-  r.forEach(x=>{const d=+x.date.slice(8);(by[d]=by[d]||{s:0,i:0,n:0});by[d].s+=x.sales;by[d].i+=x.invoices;by[d].n+=x.covers||0;cov+=x.covers||0;CH.forEach(k=>{if(x[k]){ch[k].s+=x[k].s||0;ch[k].n+=x[k].n||0}})});
+  const ch={};CH.forEach(k=>ch[k]={s:0,n:0});
+  r.forEach(x=>{const d=+x.date.slice(8);(by[d]=by[d]||{s:0,i:0,n:0});by[d].s+=x.sales;by[d].i+=x.invoices;CH.forEach(k=>{if(x[k]){ch[k].s+=x[k].s||0;ch[k].n+=x[k].n||0}})});
   const days=Object.keys(by).map(Number),last=days.length?Math.max(...days):0;
   let S=0,I=0;days.forEach(d=>{S+=by[d].s;I+=by[d].i});
   const avg=last?S/last:0,proj=avg*D;
-  return{by,last,S,I,T,D,avg,proj,pct:T?S/T*100:NaN,pp:T?proj/T*100:NaN,ticket:I?S/I:0,ch,cov,head:cov?S/cov:0}
+  return{by,last,S,I,T,D,avg,proj,pct:T?S/T*100:NaN,pp:T?proj/T*100:NaN,ticket:I?S/I:0,ch}
 }
 const cls=p=>!isFinite(p)?'':p>=100?'ok':p>=80?'warn':'bad';
 function card(name,c){
@@ -96,9 +96,7 @@ function card(name,c){
   <div class="bar"><i style="width:${w}%"></i></div>
   <div class="kv"><span>عدد الفواتير</span><b>${N(c.I)}</b></div>
   <div class="kv"><span>متوسط الفاتورة</span><b>${N(c.ticket,1)}</b></div>
-  <div class="kv"><span>عدد الأفراد</span><b>${N(c.cov)}</b></div>
-  <div class="kv"><span>متوسط الفرد</span><b>${N(c.head,1)}</b></div>
-  ${CH.map(k=>`<div class="kv"><span>${CL[k]}</span><span>${N(c.ch[k].s)} <span class="mut">(${c.S?N(c.ch[k].s/c.S*100,1):0}%) · ${N(c.ch[k].n)} فرد</span></span></div>`).join('')}
+  ${CH.map(k=>`<div class="kv"><span>${CL[k]}</span><span>${N(c.ch[k].s)} <span class="mut">(${c.S?N(c.ch[k].s/c.S*100,1):0}%) · ${N(c.ch[k].n)} فاتورة</span></span></div>`).join('')}
   <div class="kv"><span>متوسط المبيعات اليومي</span><b>${N(c.avg)}</b></div>
   <div class="kv"><span>🔮 المتوقع آخر الشهر</span><b>${N(c.proj)}</b></div>
   <div class="kv"><span>المتوقع من التارجت</span><b class="${cls(c.pp)}">${P(c.pp)}</b></div>
@@ -110,9 +108,9 @@ function daily(b){
   for(let d=1;d<=c.last;d++){
     const x=c.by[d]||{s:0,i:0};cs+=x.s;ct+=dt;
     const df=x.s-dt,pp=dt?x.s/dt*100:NaN,cp=ct?cs/ct*100:NaN;
-    h+=`<tr><td>${d}</td><td>${N(x.s)}</td><td>${N(x.i)}</td><td>${N(x.i?x.s/x.i:0,1)}</td><td>${N(x.n||0)}</td><td>${c.T?N(dt):'—'}</td><td class="${df>=0?'ok':'bad'}">${c.T?N(df):'—'}</td><td class="${cls(pp)}">${P(pp)}</td><td>${N(cs)}</td><td>${c.T?N(ct):'—'}</td><td class="${cls(cp)}">${P(cp)}</td></tr>`
+    h+=`<tr><td>${d}</td><td>${N(x.s)}</td><td>${N(x.i)}</td><td>${N(x.i?x.s/x.i:0,1)}</td><td>${c.T?N(dt):'—'}</td><td class="${df>=0?'ok':'bad'}">${c.T?N(df):'—'}</td><td class="${cls(pp)}">${P(pp)}</td><td>${N(cs)}</td><td>${c.T?N(ct):'—'}</td><td class="${cls(cp)}">${P(cp)}</td></tr>`
   }
-  return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>الأفراد</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="11">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td>${N(c.cov)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dt*c.last):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dt?c.S/(dt*c.last)*100:NaN)}</td></tr></tfoot></table></div>`
+  return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="10">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dt*c.last):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dt?c.S/(dt*c.last)*100:NaN)}</td></tr></tfoot></table></div>`
 }
 function entry(){
   const bs=isAdmin?cfg.branches:cfg.branches.filter(b=>b.id===me.branch);
@@ -122,24 +120,22 @@ function entry(){
   <div class="f"><label>التاريخ</label><input id="ed" type="date" value="${today()}"></div></div>
   ${CH.map(k=>`<div class="row" style="margin-top:10px"><b style="flex:1 1 100%">${CL[k]}</b>
   <div class="f"><label>المبيعات</label><input id="s_${k}" type="number" inputmode="decimal" oninput="av()"></div>
-  <div class="f"><label>عدد الأفراد</label><input id="n_${k}" type="number" inputmode="numeric" oninput="av()"></div></div>`).join('')}
-  <div class="row" style="margin-top:10px"><div class="f"><label>عدد الفواتير (الإجمالي)</label><input id="ei" type="number" inputmode="numeric" oninput="av()"></div></div>
+  <div class="f"><label>عدد الفواتير</label><input id="n_${k}" type="number" inputmode="numeric" oninput="av()"></div></div>`).join('')}
   <div class="kv" style="margin-top:10px"><span>إجمالي المبيعات</span><b id="et">0</b></div>
-  <div class="kv"><span>إجمالي الأفراد</span><b id="en">0</b></div>
+  <div class="kv"><span>إجمالي الفواتير</span><b id="en">0</b></div>
   <div class="kv"><span>متوسط الفاتورة</span><b id="ea">—</b></div>
-  <div class="kv"><span>متوسط الفرد</span><b id="eh">—</b></div>
   <p class="mut">إدخال نفس اليوم تاني بيعدّل القديم.</p>
   <button class="p" onclick="saveE()">حفظ</button></div>${isAdmin?'':daily(me.branch)+card('أداء فرعي',calc(me.branch))}`
 }
-function av(){let S=0,Nn=0;CH.forEach(k=>{S+=+$('#s_'+k).value||0;Nn+=+$('#n_'+k).value||0});const i=+$('#ei').value;
-  $('#et').textContent=N(S);$('#en').textContent=N(Nn);$('#ea').textContent=i?N(S/i,1):'—';$('#eh').textContent=Nn?N(S/Nn,1):'—'}
+function av(){let S=0,Nn=0;CH.forEach(k=>{S+=+$('#s_'+k).value||0;Nn+=+$('#n_'+k).value||0});
+  $('#et').textContent=N(S);$('#en').textContent=N(Nn);$('#ea').textContent=Nn?N(S/Nn,1):'—'}
 async function saveE(){
-  const b=$('#eb').value,d=$('#ed').value,i=+$('#ei').value,v={};let S=0,Nn=0;
+  const b=$('#eb').value,d=$('#ed').value,v={};let S=0,Nn=0;
   CH.forEach(k=>{const s=+$('#s_'+k).value||0,n=+$('#n_'+k).value||0;v[k]={s,n};S+=s;Nn+=n});
-  if(!b||!d||S<=0||!(i>0)){alert('اكتب المبيعات وعدد الفواتير');return}
-  try{await db.doc('sales/'+b+'_'+d).set({branch:b,date:d,month:d.slice(0,7),sales:S,invoices:i,covers:Nn,...v,by:me.uid});
+  if(!b||!d||S<=0||!(Nn>0)){alert('اكتب المبيعات وعدد الفواتير');return}
+  try{await db.doc('sales/'+b+'_'+d).set({branch:b,date:d,month:d.slice(0,7),sales:S,invoices:Nn,...v,by:me.uid});
     if(d.slice(0,7)!==month){month=d.slice(0,7);sub()}
-    CH.forEach(k=>{$('#s_'+k).value='';$('#n_'+k).value=''});$('#ei').value='';av();alert('تم الحفظ ✅')}catch(e){err(e)}
+    CH.forEach(k=>{$('#s_'+k).value='';$('#n_'+k).value=''});av();alert('تم الحفظ ✅')}catch(e){err(e)}
 }
 function settings(){
   const t=cfg.targets[month]||{},bo=cfg.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
