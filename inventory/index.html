@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>جرد العدة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mut:#6b6a64;--bd:#e3e1d8;--pri:#0f6e56;--on:#fff;--ok:#0f7b3f;--bad:#b3261e;--bad2:#fbe9e7;--ac2:#e6f2ee;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#171716;--card:#222220;--tx:#f0efe9;--mut:#a3a199;--bd:#37362f;--pri:#3dbd98;--on:#0b2a21;--ok:#4cd488;--bad:#ff8a80;--bad2:#3a1f1c;--ac2:#1d322c;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Cairo,system-ui,sans-serif;font-size:15px;max-width:760px;margin-inline:auto;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(40px,env(safe-area-inset-bottom))}
+h1{font-size:19px;margin:4px 0 10px}h2{font-size:16px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center}.row .n{flex:1;min-width:0}.row .n b{display:block;overflow-wrap:anywhere;font-weight:600}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.bar>*{flex:1;min-width:120px}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:9px 10px;width:100%}
+button{cursor:pointer;background:var(--pri);color:var(--on);border:0;font-weight:600}button.s{background:var(--card);color:var(--tx);border:1px solid var(--bd)}button.x{background:none;color:var(--bad);width:auto;padding:4px 8px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px}.tabs button{width:auto;white-space:nowrap;background:var(--card);color:var(--tx);border:1px solid var(--bd)}.tabs button.on{background:var(--pri);color:var(--on);border-color:var(--pri)}
+.cats{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px}.cats button{width:auto;white-space:nowrap;padding:6px 12px;background:var(--card);color:var(--tx);border:1px solid var(--bd);font-weight:500}.cats button.on{background:var(--ac2);color:var(--pri);border-color:var(--pri)}
+.mut,small{color:var(--mut);font-size:12px}
+.q{width:84px;text-align:center;font-size:17px;font-weight:700;direction:ltr}
+.th{width:52px;height:52px;border-radius:8px;background:var(--ac2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;font-size:20px}.th img{width:100%;height:100%;object-fit:cover}
+.pg{height:6px;background:var(--bd);border-radius:6px;overflow:hidden;margin:4px 0 10px}.pg i{display:block;height:100%;background:var(--pri)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.sum div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px;text-align:center}.sum b{display:block;font-size:20px}
+.neg{color:var(--bad)}.pos{color:var(--ok)}.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}th,td{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:center}th{color:var(--mut);font-size:12px}td:first-child,th:first-child{text-align:right;min-width:150px}tr.bad td{background:var(--bad2)}
+.m{padding:30px 10px;text-align:center;color:var(--mut)}
+.zm{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;z-index:9}.zm img{max-width:94%;max-height:90%;border-radius:10px}
+.up{color:var(--pri);font-size:12px;cursor:pointer}
+.st{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--pri);color:var(--on);padding:6px 14px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}.st.on{opacity:1}
+.hid{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+</style>
+</head>
+<body>
+<h1>📦 جرد العدة <span id="role" class="mut" style="font-size:13px"></span> <button class="s" id="out" style="display:none;width:auto;padding:3px 10px;font-size:13px" onclick="auth.signOut()">خروج</button></h1>
+<div id="app" class="m">جاري التحميل…</div>
+<input type="file" id="fi" accept="image/*" class="hid">
+<input type="file" id="fs" accept=".json" class="hid">
+<div class="st" id="st">اتحفظ ✓</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const FIREBASE_CONFIG={apiKey:"AIzaSyBAt_e-2Jrrnp6wZMm_WgxnVaR0fJikelc",authDomain:"ovio-sales.firebaseapp.com",projectId:"ovio-sales",appId:"1:798015614049:web:70dcac4aca12f734808e20"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ym=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const prevM=m=>{let[y,k]=m.split('-').map(Number);k--;if(!k){k=12;y--}return y+'-'+String(k).padStart(2,'0')};
+const key=(m,b)=>m+'__'+b;
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth=firebase.auth(),db=firebase.firestore();
+let me=null,isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
+const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية'};
+const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
+const flash=()=>{const e=$('#st');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1200)};
+const bname=id=>(branches.find(b=>b.id===id)||{}).name||id;
+const cats=()=>[...new Set(items.map(i=>i.cat))];
+const src=i=>imgs[i.id]||'';
+
+auth.onAuthStateChanged(async u=>{
+ unsubs.forEach(f=>f());unsubs=[];
+ $('#out').style.display=u?'':'none';
+ if(!u){me=null;login();return}
+ try{
+  const s=await db.doc('users/'+u.uid).get();
+  if(!s.exists){$('#app').innerHTML='<div class="card">حسابك مش متفعّل. كلم الأدمن.</div>';return}
+  me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab='count';
+  $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
+  if(!isAdmin){branch=me.branch||'';if(!branch){$('#app').innerHTML='<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>';return}}
+  const bad=e=>{$('#app').innerHTML='<div class="card">تعذر التحميل: '+esc(e.message)+'<br><span class="mut">اتأكد إن قواعد Firestore اتحدّثت.</span></div>'};
+  unsubs.push(db.doc('config/main').onSnapshot(d=>{branches=(d.data()||{}).branches||[];if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad));
+  unsubs.push(db.doc('inv_cfg/items').onSnapshot(d=>{items=(d.data()||{}).list||[];render()},bad));
+  unsubs.push(db.collection('inv_imgs').onSnapshot(s=>{imgs={};s.docs.forEach(d=>Object.assign(imgs,d.data()));render()},bad));
+  const cq=isAdmin?db.collection('inv_counts'):db.collection('inv_counts').where('b','==',me.branch);
+  unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad));
+  if(isAdmin)unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad));
+ }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
+});
+function login(){
+ $('#role').textContent='';
+ $('#app').className='';
+ $('#app').innerHTML='<div class="card"><h2>تسجيل الدخول</h2><div style="margin-bottom:8px"><small>الإيميل</small><input id="le" type="email" autocomplete="username"></div><div><small>الباسورد</small><input id="lp" type="password" autocomplete="current-password"></div><div class="bar" style="margin:10px 0 0"><button onclick="doLogin()">دخول</button><button class="s" onclick="forgot()">نسيت الباسورد</button></div></div>';
+}
+const doLogin=()=>auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err);
+const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد')).catch(err)};
+
+function head(){
+ const rep=tab==='rep';
+ let h='<div class="bar"><input type="month" id="mo" value="'+month+'">'+(isAdmin?'<select id="br">'+(rep?'<option value="*"'+(branch==='*'?' selected':'')+'>كل الفروع</option>':'')+branches.map(b=>'<option value="'+b.id+'"'+(b.id===branch?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>':'<div class="card" style="margin:0;text-align:center">'+esc(bname(branch))+'</div>')+'</div>';
+ if(isAdmin)h='<div class="tabs">'+[['count','الجرد'],['rep','التقرير'],['exp','الصرف'],['set','الإعدادات']].map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-t="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'+h;
+ return h;
+}
+function render(){
+ if(!me)return;
+ const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik'].includes(a.id)))return;
+ if(tab!=='rep'&&branch==='*')branch=(branches[0]||{}).id||'';
+ let h=head();
+ if(!items.length&&!(isAdmin&&tab==='set'))h+='<div class="m">'+(isAdmin?'لسه ما فيش أصناف. روح للإعدادات واستورد ملف الأصناف.':'الأصناف لسه ما اتجهزتش، كلم الأدمن.')+'</div>';
+ else if(tab==='count')h+=vCount();else if(tab==='rep'&&isAdmin)h+=vRep();else if(tab==='exp'&&isAdmin)h+=vExp();else if(tab==='set'&&isAdmin)h+=vSet();
+ $('#app').className='';$('#app').innerHTML=h;wire();
+}
+function wire(){
+ document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+ const mo=$('#mo');if(mo)mo.onchange=()=>{month=mo.value||month;render()};
+ const br=$('#br');if(br)br.onchange=()=>{branch=br.value;render()};
+ document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cat=b.dataset.c;render()});
+ const q=$('#qs');if(q)q.oninput=()=>{qs=q.value;const p=q.selectionStart;render();const n=$('#qs');n.focus();n.setSelectionRange(p,p)};
+ document.querySelectorAll('.q').forEach(i=>{i.oninput=()=>setQ(i.dataset.i,i.value);i.onblur=()=>setTimeout(render,50)});
+ document.querySelectorAll('[data-z]').forEach(e=>e.onclick=()=>{const z=document.createElement('div');z.className='zm';z.innerHTML='<img src="'+imgs[e.dataset.z]+'">';z.onclick=()=>z.remove();document.body.appendChild(z)});
+ document.querySelectorAll('[data-up]').forEach(e=>e.onclick=()=>{upId=e.dataset.up});
+ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>db.doc('inv_exp/'+b.dataset.d).delete().catch(err));
+ const f=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
+ f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);
+ const od=$('#od');if(od)od.onchange=()=>{onlyDiff=od.checked;render()};
+}
+
+/* الجرد */
+function setQ(id,v){
+ const k=key(month,branch),d=counts[k]||{m:month,b:branch,q:{}},q={...(d.q||{})};
+ if(v==='')delete q[id];else q[id]=Math.max(0,Number(v)||0);
+ counts[k]={...d,q};clearTimeout(timer);
+ timer=setTimeout(()=>db.doc('inv_counts/'+k).set({m:month,b:branch,q,by:me.uid,t:Date.now()}).then(flash).catch(err),700);
+ const n=Object.keys(q).length;$('#pg').style.width=(100*n/items.length)+'%';$('#pt').textContent=n+' / '+items.length;
+}
+function vCount(){
+ const q=(counts[key(month,branch)]||{}).q||{},n=Object.keys(q).length;
+ let h='<div class="mut" style="display:flex;justify-content:space-between"><span>تم جرد</span><span id="pt" dir="ltr">'+n+' / '+items.length+'</span></div><div class="pg"><i id="pg" style="width:'+(100*n/items.length)+'%"></i></div>';
+ h+='<div class="cats"><button data-c="" class="'+(!cat?'on':'')+'">الكل</button>'+cats().map(c=>'<button data-c="'+esc(c)+'" class="'+(cat===c?'on':'')+'">'+esc(c.trim())+'</button>').join('')+'</div><div class="bar"><input id="qs" placeholder="بحث بالاسم أو الكود" value="'+esc(qs)+'"></div>';
+ const L=items.filter(i=>(!cat||i.cat===cat)&&(!qs||(i.name+' '+i.code).toLowerCase().includes(qs.toLowerCase())));
+ return h+(L.map(i=>'<div class="card row"><div class="th"'+(src(i)?' data-z="'+i.id+'"><img loading="lazy" src="'+src(i)+'">':'>📦')+'</div><div class="n"><b>'+esc(i.name)+'</b><small>'+esc(i.code)+'</small>'+(isAdmin?'<div><label class="up" for="fi" data-up="'+i.id+'">📷 '+(src(i)?'غيّر':'ضيف')+' الصورة</label></div>':'')+'</div><input class="q" type="number" inputmode="numeric" min="0" data-i="'+i.id+'" value="'+(q[i.id]??'')+'" placeholder="—"></div>').join('')||'<div class="m">مفيش نتايج</div>');
+}
+
+/* الصرف */
+function vExp(){
+ const L=exps.filter(e=>e.m===month&&e.b===branch).sort((a,b)=>b.t-a.t);
+ return'<div class="card"><b>سجّل صرف لـ '+esc(bname(branch))+'</b><div class="bar" style="margin-top:8px"><select id="ei">'+cats().map(c=>'<optgroup label="'+esc(c.trim())+'">'+items.filter(i=>i.cat===c).map(i=>'<option value="'+i.id+'">'+esc(i.name)+'</option>').join('')+'</optgroup>').join('')+'</select><input id="eq" type="number" inputmode="numeric" min="1" placeholder="الكمية"><input id="en" placeholder="ملاحظة (اختياري)"></div><button id="addExp">إضافة صرف</button></div>'
+ +(L.map(e=>{const it=items.find(i=>i.id===e.i)||{name:e.i};return'<div class="card row"><div class="n"><b>'+esc(it.name)+'</b><small>'+esc(e.n||'')+'</small></div><b>+'+e.q+'</b><button class="x" data-d="'+e.id+'">حذف</button></div>'}).join('')||'<div class="m">مفيش صرف الشهر ده للفرع ده</div>');
+}
+function addExp(){
+ const i=$('#ei').value,q=Number($('#eq').value),n=$('#en').value.trim();
+ if(!i||!(q>0)){alert('اكتب كمية صحيحة');return}
+ db.collection('inv_exp').add({m:month,b:branch,i,q,n,t:Date.now()}).then(()=>{flash();$('#eq').value='';$('#en').value=''}).catch(err);
+}
+
+/* التقرير */
+function calc(){
+ const B=branch==='*'?branches.map(b=>b.id):[branch],pm=prevM(month),R=[],missing=B.filter(b=>!counts[key(month,b)]).map(bname);
+ items.forEach(it=>{
+  let op=0,iss=0,act=0,diff=0,has=false,cmp=false;
+  B.forEach(b=>{
+   const c=(counts[key(month,b)]||{}).q||{},p=(counts[key(pm,b)]||{}).q||{};
+   const s=exps.filter(e=>e.m===month&&e.b===b&&e.i===it.id).reduce((x,e)=>x+e.q,0);iss+=s;
+   if(c[it.id]!==undefined){has=true;act+=c[it.id]}
+   if(p[it.id]!==undefined)op+=p[it.id];
+   if(c[it.id]!==undefined&&p[it.id]!==undefined){cmp=true;diff+=c[it.id]-(p[it.id]+s)}
+  });
+  if(has||iss||op)R.push({it,op,iss,act,diff:cmp?diff:null,has});
+ });
+ return{R,missing};
+}
+function vRep(){
+ const{R,missing}=calc(),bad=R.filter(r=>r.diff!==null&&r.diff<0),tot=bad.reduce((s,r)=>s+r.diff,0);
+ let h='<div class="sum"><div><b class="neg">'+bad.length+'</b><span class="mut">أصناف فيها عجز</span></div><div><b class="neg">'+tot+'</b><span class="mut">إجمالي العجز</span></div><div><b>'+R.filter(r=>r.has).length+'</b><span class="mut">أصناف اتجردت</span></div></div>';
+ if(missing.length)h+='<div class="card mut">لسه ما جردوش الشهر ده: '+esc(missing.join('، '))+'</div>';
+ h+='<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="od" style="width:auto"'+(onlyDiff?' checked':'')+'> اعرض الأصناف اللي فيها فرق بس</label>';
+ const rows=R.filter(r=>!onlyDiff||(r.diff!==null&&r.diff!==0));
+ h+='<div class="card tw"><table><tr><th>الصنف</th><th>الشهر اللي فات</th><th>صرف</th><th>الجرد</th><th>الفرق</th></tr>'+rows.map(r=>'<tr class="'+(r.diff!==null&&r.diff<0?'bad':'')+'"><td>'+esc(r.it.name)+'</td><td>'+r.op+'</td><td>'+r.iss+'</td><td>'+(r.has?r.act:'—')+'</td><td class="'+(r.diff<0?'neg':r.diff>0?'pos':'')+'"><b>'+(r.diff===null?'—':(r.diff>0?'+':'')+r.diff)+'</b></td></tr>').join('')+'</table></div>';
+ return h+'<div class="mut" style="margin:6px 0">الفرق = الجرد − (الشهر اللي فات + الصرف). سالب = عجز أو كسر. بيتحسب بس لو الصنف اتجرد الشهرين.</div><button class="s" id="csv">تحميل Excel (CSV)</button>';
+}
+function csv(){
+ const{R}=calc(),l=['الصنف,الكود,الشهر اللي فات,صرف,الجرد,الفرق'].concat(R.map(r=>[JSON.stringify(r.it.name),r.it.code,r.op,r.iss,r.has?r.act:'',r.diff===null?'':r.diff].join(',')));
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+l.join('\n')],{type:'text/csv'}));a.download='report-'+month+'.csv';a.click();
+}
+
+/* الإعدادات */
+function vSet(){
+ return'<div class="card"><b>استيراد الأصناف والصور</b><div class="mut">مرة واحدة بس: اختار ملف inventory-seed.json. هيستبدل قايمة الأصناف.</div><label class="s" for="fs" style="display:block;text-align:center;padding:9px;border:1px solid var(--bd);border-radius:10px;margin-top:6px;cursor:pointer">اختار الملف</label></div>'
+ +'<div class="card"><b>صنف جديد</b><div class="bar" style="margin-top:8px"><input id="ic" list="cl" placeholder="القسم"><datalist id="cl">'+cats().map(c=>'<option value="'+esc(c.trim())+'">').join('')+'</datalist><input id="in" placeholder="اسم الصنف"><input id="ik" placeholder="الكود (اختياري)"></div><button id="addIt">إضافة صنف</button></div>'
+ +'<div class="mut">عدد الأصناف: '+items.length+' — الفروع واليوزرز بتتدار من تطبيق المبيعات.</div>';
+}
+function addIt(){
+ const c=$('#ic').value.trim(),n=$('#in').value.trim(),k=$('#ik').value.trim();
+ if(!c||!n){alert('القسم والاسم مطلوبين');return}
+ db.doc('inv_cfg/items').set({list:[...items,{id:'n'+Date.now().toString(36),cat:c,code:k,name:n}]}).then(()=>{flash();['ic','in','ik'].forEach(i=>$('#'+i).value='')}).catch(err);
+}
+let upId='';
+async function shrink(f){const b=await createImageBitmap(f),s=Math.min(1,180/Math.max(b.width,b.height)),c=document.createElement('canvas');c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.72)}
+$('#fi').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f||!upId)return;try{const d=await shrink(f);await db.doc('inv_imgs/u').set({[upId]:d},{merge:true});flash()}catch(x){err(x)}};
+$('#fs').onchange=async e=>{
+ const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{
+  const d=JSON.parse(await f.text());if(!d.items)throw new Error('الملف مش صحيح');
+  if(!confirm('استيراد '+d.items.length+' صنف مع الصور؟'))return;
+  await db.doc('inv_cfg/items').set({list:d.items});
+  const ks=Object.keys(d.imgs||{});
+  for(let i=0;i<ks.length;i+=20){const o={};ks.slice(i,i+20).forEach(k=>o[k]=d.imgs[k]);await db.doc('inv_imgs/p'+(i/20+1)).set(o)}
+  alert('تم الاستيراد ✅');
+ }catch(x){err(x)}
+};
+</script>
+</body>
+</html>
