@@ -50,7 +50,7 @@ const prevM=m=>{let[y,k]=m.split('-').map(Number);k--;if(!k){k=12;y--}return y+'
 const key=(m,b)=>m+'__'+b;
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
-let me=null,isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
+let me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية'};
 const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 const flash=()=>{const e=$('#st');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1200)};
@@ -74,7 +74,7 @@ auth.onAuthStateChanged(async u=>{
   unsubs.push(db.collection('inv_imgs').onSnapshot(s=>{imgs={};s.docs.forEach(d=>Object.assign(imgs,d.data()));render()},bad));
   const cq=isAdmin?db.collection('inv_counts'):db.collection('inv_counts').where('b','==',me.branch);
   unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad));
-  if(isAdmin)unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad));
+  if(isAdmin){unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad));unsubs.push(db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad))}
  }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
 });
 function login(){
@@ -93,7 +93,7 @@ function head(){
 }
 function render(){
  if(!me)return;
- const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik'].includes(a.id)))return;
+ const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik','un','ue','up'].includes(a.id)))return;
  if(tab!=='rep'&&branch==='*')branch=(branches[0]||{}).id||'';
  let h=head();
  if(!items.length&&!(isAdmin&&tab==='set'))h+='<div class="m">'+(isAdmin?'لسه ما فيش أصناف. روح للإعدادات واستورد ملف الأصناف.':'الأصناف لسه ما اتجهزتش، كلم الأدمن.')+'</div>';
@@ -111,7 +111,10 @@ function wire(){
  document.querySelectorAll('[data-up]').forEach(e=>e.onclick=()=>{upId=e.dataset.up});
  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>db.doc('inv_exp/'+b.dataset.d).delete().catch(err));
  const f=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
- f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);
+ f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);f('#addU',addU);
+ document.querySelectorAll('[data-ub]').forEach(x=>x.onchange=()=>db.doc('users/'+x.dataset.ub).update({branch:x.value}).then(flash).catch(err));
+ document.querySelectorAll('[data-ur]').forEach(x=>x.onclick=()=>auth.sendPasswordResetEmail(x.dataset.ur).then(()=>alert('اتبعت لينك تغيير الباسورد')).catch(err));
+ document.querySelectorAll('[data-ud]').forEach(x=>x.onclick=()=>{if(confirm('إيقاف الحساب؟'))db.doc('users/'+x.dataset.ud).delete().catch(err)});
  const od=$('#od');if(od)od.onchange=()=>{onlyDiff=od.checked;render()};
 }
 
@@ -175,9 +178,26 @@ function csv(){
 
 /* الإعدادات */
 function vSet(){
- return'<div class="card"><b>استيراد الأصناف والصور</b><div class="mut">مرة واحدة بس: اختار ملف inventory-seed.json. هيستبدل قايمة الأصناف.</div><label class="s" for="fs" style="display:block;text-align:center;padding:9px;border:1px solid var(--bd);border-radius:10px;margin-top:6px;cursor:pointer">اختار الملف</label></div>'
+ return vUsers()+'<div class="card"><b>استيراد الأصناف والصور</b><div class="mut">مرة واحدة بس: اختار ملف inventory-seed.json. هيستبدل قايمة الأصناف.</div><label class="s" for="fs" style="display:block;text-align:center;padding:9px;border:1px solid var(--bd);border-radius:10px;margin-top:6px;cursor:pointer">اختار الملف</label></div>'
  +'<div class="card"><b>صنف جديد</b><div class="bar" style="margin-top:8px"><input id="ic" list="cl" placeholder="القسم"><datalist id="cl">'+cats().map(c=>'<option value="'+esc(c.trim())+'">').join('')+'</datalist><input id="in" placeholder="اسم الصنف"><input id="ik" placeholder="الكود (اختياري)"></div><button id="addIt">إضافة صنف</button></div>'
  +'<div class="mut">عدد الأصناف: '+items.length+' — الفروع واليوزرز بتتدار من تطبيق المبيعات.</div>';
+}
+function vUsers(){
+ const bo=sel=>'<option value="">— اختار فرع —</option>'+branches.map(b=>'<option value="'+b.id+'"'+(b.id===sel?' selected':'')+'>'+esc(b.name)+'</option>').join('');
+ return'<div class="card"><h2>المستخدمين</h2>'+users.map(u=>'<div class="card" style="margin:6px 0"><div class="row"><div class="n"><b>'+esc(u.name)+(u.role==='admin'?' (أدمن)':'')+'</b><small>'+esc(u.email)+'</small></div>'+(u.id===me.uid?'':'<button class="x" data-ud="'+u.id+'">إيقاف</button>')+'</div>'+(u.role==='admin'?'':'<select data-ub="'+u.id+'" style="margin-top:6px">'+bo(u.branch)+'</select>')+'<button class="s" data-ur="'+esc(u.email)+'" style="margin-top:6px">إرسال لينك تغيير الباسورد</button></div>').join('')
+ +'<b style="display:block;margin-top:10px">مستخدم جديد</b><div class="bar" style="margin-top:6px"><input id="un" placeholder="الاسم"><input id="ue" type="email" placeholder="الإيميل"><input id="up" placeholder="الباسورد (6 أحرف على الأقل)"><select id="ur"><option value="user">يوزر فرع</option><option value="admin">أدمن</option></select><select id="ub">'+bo('')+'</select></div><button id="addU">إنشاء الحساب</button></div>';
+}
+async function addU(){
+ const name=$('#un').value.trim(),email=$('#ue').value.trim(),pw=$('#up').value,role=$('#ur').value,branch=$('#ub').value;
+ if(!name||!email||pw.length<6){alert('اكمل الاسم والإيميل وباسورد 6 أحرف على الأقل');return}
+ if(role==='user'&&!branch){alert('اختار فرع لليوزر');return}
+ try{
+  const sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');
+  const c=await sec.auth().createUserWithEmailAndPassword(email,pw);
+  await db.doc('users/'+c.user.uid).set({name,email,role,branch:role==='user'?branch:''});
+  await sec.auth().signOut();alert('تم إنشاء الحساب ✅ ابعت للشخص الإيميل والباسورد');
+  ['un','ue','up'].forEach(i=>$('#'+i).value='');
+ }catch(e){err(e)}
 }
 function addIt(){
  const c=$('#ic').value.trim(),n=$('#in').value.trim(),k=$('#ik').value.trim();
