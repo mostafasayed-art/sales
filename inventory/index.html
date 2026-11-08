@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>جرد العدة</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6e56">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mut:#6b6a64;--bd:#e3e1d8;--pri:#0f6e56;--on:#fff;--ok:#0f7b3f;--bad:#b3261e;--bad2:#fbe9e7;--ac2:#e6f2ee;color-scheme:light}
@@ -50,7 +55,9 @@ const prevM=m=>{let[y,k]=m.split('-').map(Number);k--;if(!k){k=12;y--}return y+'
 const key=(m,b)=>m+'__'+b;
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
-let me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+let lim=40,rt,me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية'};
 const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 const flash=()=>{const e=$('#st');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1200)};
@@ -91,7 +98,8 @@ function head(){
  if(isAdmin)h='<div class="tabs">'+[['count','الجرد'],['rep','التقرير'],['exp','الصرف'],['set','الإعدادات']].map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-t="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'+h;
  return h;
 }
-function render(){
+function render(){clearTimeout(rt);rt=setTimeout(draw,30)}
+function draw(){
  if(!me)return;
  const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik','un','ue','up'].includes(a.id)))return;
  if(tab!=='rep'&&branch==='*')branch=(branches[0]||{}).id||'';
@@ -104,14 +112,14 @@ function wire(){
  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
  const mo=$('#mo');if(mo)mo.onchange=()=>{month=mo.value||month;render()};
  const br=$('#br');if(br)br.onchange=()=>{branch=br.value;render()};
- document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cat=b.dataset.c;render()});
- const q=$('#qs');if(q)q.oninput=()=>{qs=q.value;const p=q.selectionStart;render();const n=$('#qs');n.focus();n.setSelectionRange(p,p)};
+ document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cat=b.dataset.c;lim=40;render()});
+ const q=$('#qs');if(q)q.oninput=()=>{qs=q.value;lim=40;const p=q.selectionStart;render();const n=$('#qs');n.focus();n.setSelectionRange(p,p)};
  document.querySelectorAll('.q').forEach(i=>{i.oninput=()=>setQ(i.dataset.i,i.value);i.onblur=()=>setTimeout(render,50)});
  document.querySelectorAll('[data-z]').forEach(e=>e.onclick=()=>{const z=document.createElement('div');z.className='zm';z.innerHTML='<img src="'+imgs[e.dataset.z]+'">';z.onclick=()=>z.remove();document.body.appendChild(z)});
  document.querySelectorAll('[data-up]').forEach(e=>e.onclick=()=>{upId=e.dataset.up});
  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>db.doc('inv_exp/'+b.dataset.d).delete().catch(err));
  const f=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
- f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);f('#addU',addU);
+ f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);f('#addU',addU);f('#more',()=>{lim+=40;render()});
  document.querySelectorAll('[data-ub]').forEach(x=>x.onchange=()=>db.doc('users/'+x.dataset.ub).update({branch:x.value}).then(flash).catch(err));
  document.querySelectorAll('[data-ur]').forEach(x=>x.onclick=()=>auth.sendPasswordResetEmail(x.dataset.ur).then(()=>alert('اتبعت لينك تغيير الباسورد')).catch(err));
  document.querySelectorAll('[data-ud]').forEach(x=>x.onclick=()=>{if(confirm('إيقاف الحساب؟'))db.doc('users/'+x.dataset.ud).delete().catch(err)});
@@ -131,7 +139,7 @@ function vCount(){
  let h='<div class="mut" style="display:flex;justify-content:space-between"><span>تم جرد</span><span id="pt" dir="ltr">'+n+' / '+items.length+'</span></div><div class="pg"><i id="pg" style="width:'+(100*n/items.length)+'%"></i></div>';
  h+='<div class="cats"><button data-c="" class="'+(!cat?'on':'')+'">الكل</button>'+cats().map(c=>'<button data-c="'+esc(c)+'" class="'+(cat===c?'on':'')+'">'+esc(c.trim())+'</button>').join('')+'</div><div class="bar"><input id="qs" placeholder="بحث بالاسم أو الكود" value="'+esc(qs)+'"></div>';
  const L=items.filter(i=>(!cat||i.cat===cat)&&(!qs||(i.name+' '+i.code).toLowerCase().includes(qs.toLowerCase())));
- return h+(L.map(i=>'<div class="card row"><div class="th"'+(src(i)?' data-z="'+i.id+'"><img loading="lazy" src="'+src(i)+'">':'>📦')+'</div><div class="n"><b>'+esc(i.name)+'</b><small>'+esc(i.code)+'</small>'+(isAdmin?'<div><label class="up" for="fi" data-up="'+i.id+'">📷 '+(src(i)?'غيّر':'ضيف')+' الصورة</label></div>':'')+'</div><input class="q" type="number" inputmode="numeric" min="0" data-i="'+i.id+'" value="'+(q[i.id]??'')+'" placeholder="—"></div>').join('')||'<div class="m">مفيش نتايج</div>');
+ return h+(L.slice(0,lim).map(i=>'<div class="card row"><div class="th"'+(src(i)?' data-z="'+i.id+'"><img loading="lazy" src="'+src(i)+'">':'>📦')+'</div><div class="n"><b>'+esc(i.name)+'</b><small>'+esc(i.code)+'</small>'+(isAdmin?'<div><label class="up" for="fi" data-up="'+i.id+'">📷 '+(src(i)?'غيّر':'ضيف')+' الصورة</label></div>':'')+'</div><input class="q" type="number" inputmode="numeric" min="0" data-i="'+i.id+'" value="'+(q[i.id]??'')+'" placeholder="—"></div>').join('')||'<div class="m">مفيش نتايج</div>')+(L.length>lim?'<button class="s" id="more">عرض المزيد ('+(L.length-lim)+')</button>':'');
 }
 
 /* الصرف */
