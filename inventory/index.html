@@ -47,6 +47,7 @@ table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}th,td{p
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+window.onerror=m=>{const a=document.getElementById('app');if(a&&a.textContent.includes('جاري'))a.textContent='خطأ: '+m};
 const FIREBASE_CONFIG={apiKey:"AIzaSyBAt_e-2Jrrnp6wZMm_WgxnVaR0fJikelc",authDomain:"ovio-sales.firebaseapp.com",projectId:"ovio-sales",appId:"1:798015614049:web:70dcac4aca12f734808e20"};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -55,7 +56,7 @@ const prevM=m=>{let[y,k]=m.split('-').map(Number);k--;if(!k){k=12;y--}return y+'
 const key=(m,b)=>m+'__'+b;
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
-db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+db.enablePersistence().catch(()=>{});
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 let lim=40,rt,me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية'};
@@ -63,7 +64,8 @@ const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 const flash=()=>{const e=$('#st');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1200)};
 const bname=id=>(branches.find(b=>b.id===id)||{}).name||id;
 const cats=()=>[...new Set(items.map(i=>i.cat))];
-const src=i=>imgs[i.id]||'';
+let uimgs={};const src=i=>uimgs[i.id]||imgs[i.id]||'';
+const loadImgs=()=>fetch('images.json').then(r=>r.json()).then(j=>{imgs=j;render()}).catch(()=>{});
 
 auth.onAuthStateChanged(async u=>{
  unsubs.forEach(f=>f());unsubs=[];
@@ -78,7 +80,8 @@ auth.onAuthStateChanged(async u=>{
   const bad=e=>{$('#app').innerHTML='<div class="card">تعذر التحميل: '+esc(e.message)+'<br><span class="mut">اتأكد إن قواعد Firestore اتحدّثت.</span></div>'};
   unsubs.push(db.doc('config/main').onSnapshot(d=>{branches=(d.data()||{}).branches||[];if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad));
   unsubs.push(db.doc('inv_cfg/items').onSnapshot(d=>{items=(d.data()||{}).list||[];render()},bad));
-  unsubs.push(db.collection('inv_imgs').onSnapshot(s=>{imgs={};s.docs.forEach(d=>Object.assign(imgs,d.data()));render()},bad));
+  unsubs.push(db.doc('inv_imgs/u').onSnapshot(d=>{uimgs=d.data()||{};render()},()=>{}));
+  loadImgs();
   const cq=isAdmin?db.collection('inv_counts'):db.collection('inv_counts').where('b','==',me.branch);
   unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad));
   if(isAdmin){unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad));unsubs.push(db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad))}
@@ -221,8 +224,6 @@ $('#fs').onchange=async e=>{
   const d=JSON.parse(await f.text());if(!d.items)throw new Error('الملف مش صحيح');
   if(!confirm('استيراد '+d.items.length+' صنف مع الصور؟'))return;
   await db.doc('inv_cfg/items').set({list:d.items});
-  const ks=Object.keys(d.imgs||{});
-  for(let i=0;i<ks.length;i+=20){const o={};ks.slice(i,i+20).forEach(k=>o[k]=d.imgs[k]);await db.doc('inv_imgs/p'+(i/20+1)).set(o)}
   alert('تم الاستيراد ✅');
  }catch(x){err(x)}
 };
