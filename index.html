@@ -3,32 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>مبيعات الفروع</title>
+<meta name="theme-color" content="#09253C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Ovio Sales</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mut:#6b6a64;--bd:#e3e1d8;--pri:#0f6e56;--on:#fff;--ok:#0f7b3f;--bad:#b3261e;--warn:#9a6700;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#171716;--card:#222220;--tx:#f0efe9;--mut:#a3a199;--bd:#37362f;--pri:#3dbd98;--on:#0b2a21;--ok:#4cd488;--bad:#ff8a80;--warn:#e8b84a;color-scheme:dark}}
+:root{--bg:#09253C;--card:#0f3350;--card2:#0b2d47;--bd:#1f4c6e;--tx:#eaeef4;--mut:#8fa8bd;--pri:#eaeef4;--on:#09253C;--ok:#5fd3a6;--bad:#ff8f8f;--warn:#f2c46d;--acc:#7fb4d9;--gold:#f2c46d;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font-family:Cairo,system-ui,sans-serif;font-size:15px;max-width:900px;margin-inline:auto;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
-h1{font-size:19px;margin:4px 0 10px}h2{font-size:16px;margin:0 0 8px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Cairo,system-ui,sans-serif;font-size:15px;max-width:960px;margin-inline:auto;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 12px}
+.top img{height:46px;width:auto;display:block}
+.top .who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+h2{font-size:16px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}.tabs button{flex:0 0 auto}
-button,select,input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}.tabs button{flex:0 0 auto}
+button,select,input{font:inherit;color:var(--tx);background:var(--card2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
 input,select{width:100%}
+input::placeholder{color:var(--mut)}
 .f{flex:1 1 120px}.f label{display:block;font-size:12px;color:var(--mut);margin-bottom:2px}
-button{cursor:pointer}button.p,.tabs button.on{background:var(--pri);color:var(--on);border-color:var(--pri);font-weight:600}
+button{cursor:pointer}button.p,.tabs button.on{background:var(--pri);color:var(--on);border-color:var(--pri);font-weight:700}
 .sm{padding:4px 8px;font-size:13px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .kv{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;border-bottom:1px dashed var(--bd)}.kv:last-child{border:0}
 .mut{color:var(--mut);font-size:13px}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
-.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:var(--pri)}
+.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:var(--acc)}
 .sc{overflow-x:auto}table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:13px}
-th,td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--bd)}th{background:var(--bg)}tfoot td{font-weight:700}
+th,td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--bd)}th{background:var(--card2)}tfoot td{font-weight:700}
+.login{max-width:380px;margin:6vh auto 0;text-align:center}.login img{height:90px;margin-bottom:10px}.login .f{text-align:start}
+.chart{direction:ltr}.chart svg{width:100%;height:auto;display:block}
+.lg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:4px;vertical-align:middle}
+.br{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;margin:8px 0;font-size:13px}
+.trk{position:relative;height:14px;background:var(--bd);border-radius:7px}.trk .fl{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:7px}.trk .pj{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--gold);border-radius:2px}
+.stk{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--bd);margin:8px 0}
 </style>
 </head>
 <body>
-<h1>📊 مبيعات الفروع <span id="role" class="mut" style="font-size:13px"></span> <button class="sm" id="out" style="display:none" onclick="auth.signOut()">خروج</button></h1>
+<div class="top"><img src="logo.png" alt="Ovio"><div class="who"><span id="role"></span><button class="sm" id="out" style="display:none" onclick="auth.signOut()">خروج</button></div></div>
 <div id="app" class="mut">جاري التحميل…</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -43,6 +60,7 @@ const P=x=>isFinite(x)?N(x,1)+'%':'—';
 const ym=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 const today=()=>{const d=new Date();return ym(d)+'-'+String(d.getDate()).padStart(2,'0')};
 firebase.initializeApp(FIREBASE_CONFIG);
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 const auth=firebase.auth(),db=firebase.firestore();
 let me=null,isAdmin=false,cfg={branches:[],targets:{}},rows=[],users=[],month=ym(new Date()),tab='sum',fb='all',unsubs=[],unsubS;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/email-already-in-use':'الإيميل مستخدم قبل كده','auth/weak-password':'الباسورد ضعيف (6 أحرف على الأقل)','auth/too-many-requests':'محاولات كتير، جرّب بعد شوية'};
@@ -55,7 +73,7 @@ auth.onAuthStateChanged(async u=>{
   try{
     const s=await db.doc('users/'+u.uid).get();
     if(!s.exists){$('#app').innerHTML='<div class="card">حسابك مش متفعّل. كلم الأدمن.</div>';return}
-    me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab=isAdmin?'sum':'entry';
+    me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab=isAdmin?'tot':'entry';
     $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
     unsubs.push(db.doc('config/main').onSnapshot(d=>{if(d.exists)cfg=Object.assign({branches:[],targets:{}},d.data());render()}));
     if(isAdmin)unsubs.push(db.collection('users').onSnapshot(q=>{users=q.docs.map(d=>({uid:d.id,...d.data()}));if(tab==='set')render()}));
@@ -64,10 +82,10 @@ auth.onAuthStateChanged(async u=>{
 });
 function login(){
   $('#role').textContent='';
-  $('#app').innerHTML=`<div class="card"><h2>تسجيل الدخول</h2>
+  $('#app').innerHTML=`<div class="card login"><img src="logo.png" alt="Ovio"><h2>تسجيل الدخول</h2>
   <div class="f"><label>الإيميل</label><input id="le" type="email" autocomplete="username"></div>
   <div class="f" style="margin-top:8px"><label>الباسورد</label><input id="lp" type="password" autocomplete="current-password"></div>
-  <div class="row" style="margin-top:10px"><button class="p" onclick="doLogin()">دخول</button><button class="sm" onclick="forgot()">نسيت الباسورد</button></div></div>`;
+  <div class="row" style="margin-top:12px;justify-content:center"><button class="p" onclick="doLogin()">دخول</button><button class="sm" onclick="forgot()">نسيت الباسورد</button></div></div>`;
 }
 const doLogin=()=>auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err);
 const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد على الإيميل')).catch(err)};
@@ -102,7 +120,48 @@ function card(name,c){
   <div class="kv"><span>المتوقع من التارجت</span><b class="${cls(c.pp)}">${P(c.pp)}</b></div>
   <div class="kv"><span>${c.proj>=c.T?'زيادة متوقعة':'عجز متوقع'}</span><b class="${c.proj>=c.T?'ok':'bad'}">${c.T?N(Math.abs(c.proj-c.T)):'—'}</b></div></div>`
 }
-const summary=()=>`<div class="grid">${card('إجمالي الفروع',calc('all'))}${cfg.branches.map(b=>card(b.name,calc(b.id))).join('')}</div>`;
+
+const K=n=>{n=Math.abs(n)>=1e6?N(n/1e6,1)+'M':Math.abs(n)>=1e3?N(n/1e3,1)+'K':N(n);return n};
+function chartDaily(c){
+  const W=640,H=230,L=44,R=10,T=14,B=26,D=c.D,dt=c.T?c.T/D:0;
+  let mx=dt;for(let d=1;d<=D;d++)mx=Math.max(mx,(c.by[d]||{s:0}).s);mx=(mx||1)*1.15;
+  const x=d=>L+(d-.5)*(W-L-R)/D,y=v=>T+(H-T-B)*(1-v/mx),bw=Math.max(2,(W-L-R)/D*.62);
+  let g='';for(let i=0;i<=3;i++){const v=mx*i/3;g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1f4c6e" stroke-width="1"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8fa8bd">${K(v)}</text>`}
+  let bars='';for(let d=1;d<=D;d++){const v=(c.by[d]||{s:0}).s;if(v>0)bars+=`<rect x="${x(d)-bw/2}" y="${y(v)}" width="${bw}" height="${H-B-y(v)}" rx="2" fill="${dt&&v<dt?'#7fb4d9':'#5fd3a6'}"/>`}
+  let xt='';for(let d=1;d<=D;d++)if(d===1||d%5===0||d===D)xt+=`<text x="${x(d)}" y="${H-8}" text-anchor="middle" font-size="11" fill="#8fa8bd">${d}</text>`;
+  const tl=dt?`<line x1="${L}" x2="${W-R}" y1="${y(dt)}" y2="${y(dt)}" stroke="#f2c46d" stroke-width="2" stroke-dasharray="6 4"/>`:'';
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${bars}${tl}${xt}</svg></div><div class="lg"><span><i style="background:#5fd3a6"></i>أعلى من تارجت اليوم</span><span><i style="background:#7fb4d9"></i>أقل من التارجت</span><span><i style="background:#f2c46d"></i>تارجت اليوم</span></div>`
+}
+function chartCum(c){
+  const W=640,H=230,L=44,R=10,T=14,B=26,D=c.D,mx=(Math.max(c.T,c.proj,c.S)||1)*1.1;
+  const x=d=>L+(d-1)*(W-L-R)/Math.max(D-1,1),y=v=>T+(H-T-B)*(1-v/mx);
+  let g='';for(let i=0;i<=3;i++){const v=mx*i/3;g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1f4c6e"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8fa8bd">${K(v)}</text>`}
+  let pts=[],cs=0;for(let d=1;d<=c.last;d++){cs+=(c.by[d]||{s:0}).s;pts.push(`${x(d)},${y(cs)}`)}
+  let xt='';for(let d=1;d<=D;d++)if(d===1||d%5===0||d===D)xt+=`<text x="${x(d)}" y="${H-8}" text-anchor="middle" font-size="11" fill="#8fa8bd">${d}</text>`;
+  const tl=c.T?`<line x1="${x(1)}" y1="${y(c.T/D)}" x2="${x(D)}" y2="${y(c.T)}" stroke="#f2c46d" stroke-width="2" stroke-dasharray="6 4"/>`:'';
+  const pj=c.last&&c.last<D?`<line x1="${x(c.last)}" y1="${y(c.S)}" x2="${x(D)}" y2="${y(c.proj)}" stroke="#eaeef4" stroke-width="2" stroke-dasharray="2 4"/><circle cx="${x(D)}" cy="${y(c.proj)}" r="4" fill="#eaeef4"/>`:'';
+  const ac=pts.length?`<polyline points="${pts.join(' ')}" fill="none" stroke="#5fd3a6" stroke-width="3" stroke-linejoin="round"/>`:'';
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${tl}${ac}${pj}${xt}</svg></div><div class="lg"><span><i style="background:#5fd3a6"></i>الفعلي التراكمي</span><span><i style="background:#f2c46d"></i>التارجت التراكمي</span><span><i style="background:#eaeef4"></i>التوقع لآخر الشهر</span></div>`
+}
+function chartBranches(){
+  const rows=cfg.branches.map(b=>({n:b.name,c:calc(b.id)}));
+  if(!rows.length)return '<span class="mut">أضف فروع</span>';
+  const mx=Math.max(130,...rows.map(r=>Math.max(isFinite(r.c.pct)?r.c.pct:0,isFinite(r.c.pp)?r.c.pp:0)))*1.02;
+  return rows.map(r=>{const a=isFinite(r.c.pct)?r.c.pct:0,p=isFinite(r.c.pp)?r.c.pp:0;
+    return `<div class="br"><span>${r.n}</span><div><div class="trk"><div class="fl" style="width:${Math.min(a/mx*100,100)}%"></div>${r.c.T?`<div class="pj" style="left:${Math.min(p/mx*100,100)}%"></div>`:''}</div><div class="mut" style="margin-top:3px">المحقق ${P(r.c.pct)} · المتوقع <span class="${cls(r.c.pp)}">${P(r.c.pp)}</span> · ${N(r.c.S)}</div></div></div>`}).join('')+`<div class="lg"><span><i style="background:#7fb4d9"></i>المحقق حتى الآن</span><span><i style="background:#f2c46d"></i>المتوقع آخر الشهر</span></div>`
+}
+function chartChannels(c){
+  const col={dine:'#7fb4d9',take:'#5fd3a6',del:'#f2c46d',cat:'#c9a7ff'},tot=CH.reduce((a,k)=>a+c.ch[k].s,0);
+  if(!tot)return '<span class="mut">لا توجد بيانات قنوات بعد</span>';
+  return `<div class="stk">${CH.map(k=>`<div style="width:${c.ch[k].s/tot*100}%;background:${col[k]}"></div>`).join('')}</div>`+CH.map(k=>`<div class="kv"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${col[k]};margin-inline-end:6px"></i>${CL[k]}</span><span>${N(c.ch[k].s)} <span class="mut">(${N(c.ch[k].s/tot*100,1)}%) · ${N(c.ch[k].n)} فاتورة</span></span></div>`).join('')
+}
+function total(){
+  const c=calc('all');
+  return `<div class="grid">${card('إجمالي كل الفروع',c)}<div class="card"><h2>مبيعات كل يوم مقابل التارجت</h2>${chartDaily(c)}</div></div>
+  <div class="card"><h2>التراكمي مقابل التارجت والتوقع</h2>${chartCum(c)}</div>
+  <div class="grid"><div class="card"><h2>المحقق والمتوقع لكل فرع</h2>${chartBranches()}</div><div class="card"><h2>توزيع المبيعات حسب القناة</h2>${chartChannels(c)}</div></div>`
+}
+const summary=()=>`<div class="grid">${cfg.branches.map(b=>card(b.name,calc(b.id))).join('')||'<div class="card">أضف الفروع من الإعدادات</div>'}</div>`;
 function daily(b){
   const c=calc(b),dt=c.T/c.D;let cs=0,ct=0,h='';
   for(let d=1;d<=c.last;d++){
@@ -178,10 +237,10 @@ function delU(id){if(id===me.uid){alert('مينفعش توقف حسابك');retu
 function render(){
   if(!me)return;
   if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei)/.test(document.activeElement.id))return;
-  const T=isAdmin?[['sum','الملخص والتوقع'],['day','يوم بيوم'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي']];
+  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي']];
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
   ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${cfg.branches.map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
-  const body=tab==='sum'?summary():tab==='day'?daily(fb):tab==='set'?settings():entry();
+  const body=tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='set'?settings():entry();
   $('#app').className='';
   $('#app').innerHTML=`<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${tab==='set'||(tab==='entry'&&!isAdmin)?'':fsel}${body}`;
 }
