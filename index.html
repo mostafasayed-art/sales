@@ -328,7 +328,7 @@ function analysis(){
   return `<h2 style="margin:4px 0 10px">تحليل ${GN[grp]}</h2>${insH}${kp}${mchart}${monthly}${mvm}<div class="grid">${bt}${chT||''}</div><div class="grid">${wchart}${tchart}</div>${topH}`
 }
 
-let imp=null,imode='d';
+let imp=null,imode='d',iauto=true,impA=null;
 const pad2=n=>String(n).padStart(2,'0');
 const AD=v=>String(v).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const num=v=>{if(v==null||v==='')return 0;if(typeof v==='number')return v;const n=Number(AD(v).replace(/[,،٬\s]/g,''));return isFinite(n)?n:NaN};
@@ -349,13 +349,13 @@ function parseCSV(t){
   return rows}
 function buildImport(a,mode){
   const mp={};cfg.branches.forEach(b=>mp[b.name.trim().toLowerCase()]=b);gb().forEach(b=>mp[b.name.trim().toLowerCase()]=b);
-  const out=new Map(),errs=[],unk=new Set();
+  const out=new Map(),errs=[],unk=new Set(),nb=[];
   a.forEach((r,i)=>{
     if(!r||!r.length||r.every(c=>c===''||c==null))return;
     const dt=pdate(r[0]);
     if(!dt){if(i>0)errs.push(`صف ${i+1}: التاريخ غير مفهوم`);return}
-    const bn=String(r[1]==null?'':r[1]).trim(),b=mp[bn.toLowerCase()];
-    if(!b){unk.add(bn||'(فاضي)');return}
+    const bn=String(r[1]==null?'':r[1]).trim();let b=mp[bn.toLowerCase()];
+    if(!b){if(!iauto||!bn){unk.add(bn||'(فاضي)');return}b={id:'b'+(Date.now()+nb.length),name:bn,group:grp};mp[bn.toLowerCase()]=b;nb.push(b)}
     if(mode==='d'&&!dt.d){errs.push(`صف ${i+1}: لازم تاريخ كامل (يوم وشهر وسنة)`);return}
     if(dt.m<1||dt.m>12||(dt.d&&(dt.d<1||dt.d>31))){errs.push(`صف ${i+1}: تاريخ غير صحيح`);return}
     const v={};let S=0,I=0,bad=false;
@@ -367,7 +367,7 @@ function buildImport(a,mode){
     out.set(b.id+'_'+(mode==='m'?month+'_M':date),{branch:b.id,date,month,sales:S,invoices:I,...v,...(mode==='m'?{monthly:true}:{}),imported:true});
   });
   const docs=[...out.entries()],ds=docs.map(x=>x[1].date).sort();
-  return{docs,errs,unk:[...unk],S:docs.reduce((a,x)=>a+x[1].sales,0),min:ds[0]||'',max:ds[ds.length-1]||'',mode}
+  return{docs,errs,nb,unk:[...unk],S:docs.reduce((a,x)=>a+x[1].sales,0),min:ds[0]||'',max:ds[ds.length-1]||'',mode}
 }
 const loadXLSX=()=>window.XLSX?Promise.resolve():new Promise((ok,no)=>{const e=document.createElement('script');e.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';e.onload=ok;e.onerror=()=>no(new Error('مش قادر أحمّل مكتبة Excel. احفظ الملف كـ CSV UTF-8 وارفعه'));document.head.appendChild(e)});
 async function onFile(inp){
@@ -375,7 +375,7 @@ async function onFile(inp){
   try{let a;
     if(/\.csv$/i.test(f.name)){const buf=await f.arrayBuffer();let t=new TextDecoder('utf-8').decode(buf);if(t.includes('\ufffd'))t=new TextDecoder('windows-1256').decode(buf);a=parseCSV(t)}
     else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});a=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
-    imp=buildImport(a,imode);imp.name=f.name
+    impA=a;imp=buildImport(a,imode);imp.name=f.name
   }catch(e){alert('تعذر قراءة الملف: '+(e.message||e));imp=null}
   inp.value='';render()
 }
@@ -385,23 +385,27 @@ function dlTpl(){
   const rows=[h,[m?'2025-01':'2025-01-01',n,12000,40,3000,15,2500,10,0,0,'',''],[m?'2025-02':'2025-01-02',n,13500,45,2800,14,3100,12,0,0,'','']];
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));a.download=m?'ovio-monthly-template.csv':'ovio-daily-template.csv';a.click()
 }
+function reb(){if(impA){const n=imp&&imp.name;imp=buildImport(impA,imode);imp.name=n}render()}
 async function doImport(){
   if(!imp||!imp.docs.length||imp.busy)return;
   if(!confirm(`هيتم استيراد ${imp.docs.length} سجل، والسجلات الموجودة بنفس الفرع والتاريخ هتتبدل. تكمل؟`))return;
   imp.busy=true;imp.done=0;render();let ok=false;
-  try{for(let i=0;i<imp.docs.length;i+=250){const bt=db.batch();imp.docs.slice(i,i+250).forEach(([id,d])=>bt.set(db.doc('sales/'+id),{...d,by:me.uid}));await bt.commit();imp.done=Math.min(i+250,imp.docs.length);render()}ok=true}
+  try{if(imp.nb.length){cfg.branches.push(...imp.nb.map(b=>({id:b.id,name:b.name,group:b.group})));await db.doc('config/main').set(cfg)}
+    for(let i=0;i<imp.docs.length;i+=250){const bt=db.batch();imp.docs.slice(i,i+250).forEach(([id,d])=>bt.set(db.doc('sales/'+id),{...d,by:me.uid}));await bt.commit();imp.done=Math.min(i+250,imp.docs.length);render()}ok=true}
   catch(e){err(e)}
-  if(ok){alert('تم الاستيراد ✅');imp=null;yLoaded=0}else if(imp)imp.busy=false;
+  if(ok){alert('تم الاستيراد ✅');imp=null;impA=null;yLoaded=0}else if(imp)imp.busy=false;
   render()
 }
 function importCard(){
   const m=imode==='m';
   return `<div class="card"><h2>استيراد بيانات سابقة من Excel</h2>
   <p class="mut">حمّل النموذج واملاه وارفعه. أسماء الفروع لازم تكون نفس الأسماء المضافة في ${GN[grp]} (أضف الفروع الأول). لو الملف CSV احفظه بصيغة CSV UTF-8.</p>
-  <div class="row"><div class="f"><label>شكل الملف</label><select onchange="imode=this.value;imp=null;render()"><option value="d" ${m?'':'selected'}>صف لكل يوم (لكل فرع)</option><option value="m" ${m?'selected':''}>صف لكل شهر (إجماليات)</option></select></div><button onclick="dlTpl()">تحميل النموذج</button></div>
+  <div class="row"><div class="f"><label>شكل الملف</label><select onchange="imode=this.value;reb()"><option value="d" ${m?'':'selected'}>صف لكل يوم (لكل فرع)</option><option value="m" ${m?'selected':''}>صف لكل شهر (إجماليات)</option></select></div><button onclick="dlTpl()">تحميل النموذج</button></div>
   <p class="mut">${m?'في وضع الشهور: اكتب الشهر (مثلًا 2025-03). المقارنات الشهرية والسنوية بتشتغل، لكن تحليل أيام الأسبوع وأعلى الأيام مش هيشمل الشهور دي.':'اكتب التاريخ بصيغة 2025-03-15 أو 15/03/2025. لو مفيش تفصيل للقنوات، اكتب الإجماليات في آخر عمودين.'}</p>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" style="width:auto" ${iauto?'checked':''} onchange="iauto=this.checked;reb()">إضافة الفروع الجديدة تلقائيًا من الملف (في ${GN[grp]})</label>
   <div class="f" style="margin-top:8px"><label>اختار الملف (xlsx أو csv)</label><input id="ifile" type="file" accept=".xlsx,.xls,.csv" onchange="onFile(this)"></div>
   ${imp?`<div style="margin-top:10px"><div class="kv"><span>الملف</span><b>${imp.name}</b></div><div class="kv"><span>سجلات صالحة</span><b>${imp.docs.length}</b></div><div class="kv"><span>الفترة</span><b>${imp.min||'—'} → ${imp.max||'—'}</b></div><div class="kv"><span>إجمالي المبيعات</span><b>${N(imp.S)}</b></div>
+  ${imp.nb&&imp.nb.length?`<p class="ok">فروع جديدة هتتضاف في ${GN[grp]}: ${imp.nb.map(b=>b.name).join('، ')}</p>`:''}
   ${imp.unk.length?`<p class="bad">فروع مش موجودة (اتجاهلت): ${imp.unk.join('، ')}</p>`:''}
   ${imp.errs.length?`<p class="warn">${imp.errs.length} صف فيهم مشاكل (اتجاهلوا): ${imp.errs.slice(0,6).join(' | ')}</p>`:''}
   ${imp.docs.length?`<button class="p" style="margin-top:6px" onclick="doImport()" ${imp.busy?'disabled':''}>${imp.busy?`جاري الاستيراد ${imp.done||0}/${imp.docs.length}…`:`استيراد ${imp.docs.length} سجل`}</button>`:''}</div>`:''}</div>`
