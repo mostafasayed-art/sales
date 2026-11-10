@@ -62,7 +62,7 @@ const today=()=>{const d=new Date();return ym(d)+'-'+String(d.getDate()).padStar
 firebase.initializeApp(FIREBASE_CONFIG);
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 const auth=firebase.auth(),db=firebase.firestore();
-let me=null,isAdmin=false,cfg={branches:[],targets:{}},rows=[],users=[],month=ym(new Date()),tab='sum',fb='all',unsubs=[],unsubS;
+let me=null,isAdmin=false,cfg={branches:[],targets:{}},rows=[],users=[],month=ym(new Date()),tab='sum',fb='all',unsubs=[],unsubS,grp='ovio',yr=new Date().getFullYear(),yd=[],yLoaded=0,yLoad=false,cmpA=null,cmpB=null;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/email-already-in-use':'الإيميل مستخدم قبل كده','auth/weak-password':'الباسورد ضعيف (6 أحرف على الأقل)','auth/too-many-requests':'محاولات كتير، جرّب بعد شوية'};
 const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 
@@ -91,12 +91,16 @@ const doLogin=()=>auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp')
 const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد على الإيميل')).catch(err)};
 function sub(){if(unsubS)unsubS();unsubS=db.collection('sales').where('month','==',month).onSnapshot(s=>{rows=s.docs.map(d=>d.data());render()},e=>{$('#app').textContent='تعذر قراءة المبيعات'})}
 const saveCfg=()=>db.doc('config/main').set(cfg).catch(err);
+const GN={ovio:'Ovio',little:'Little Ovio'};
+const gb=()=>cfg.branches.filter(b=>(b.group||'ovio')===grp);
+const gset=()=>new Set(gb().map(b=>b.id));
+const bFull=b=>GN[b.group||'ovio']+' · '+b.name;
 const bName=id=>(cfg.branches.find(b=>b.id===id)||{name:'؟'}).name;
 const dim=()=>{const[y,m]=month.split('-').map(Number);return new Date(y,m,0).getDate()};
-const tgt=b=>{const t=cfg.targets[month]||{};return b==='all'?cfg.branches.reduce((a,x)=>a+(+t[x.id]||0),0):(+t[b]||0)};
+const tgt=b=>{const t=cfg.targets[month]||{};return b==='all'?gb().reduce((a,x)=>a+(+t[x.id]||0),0):(+t[b]||0)};
 const CH=['dine','take','del','cat'],CL={dine:'Dine in',take:'Take away',del:'Delivery',cat:'Catering'};
 function calc(b){
-  const r=rows.filter(x=>b==='all'||x.branch===b),D=dim(),T=tgt(b),by={};
+  const G=gset(),r=rows.filter(x=>b==='all'?G.has(x.branch):x.branch===b),D=dim(),T=tgt(b),by={};
   const ch={};CH.forEach(k=>ch[k]={s:0,n:0});
   r.forEach(x=>{const d=+x.date.slice(8);(by[d]=by[d]||{s:0,i:0,n:0});by[d].s+=x.sales;by[d].i+=x.invoices;CH.forEach(k=>{if(x[k]){ch[k].s+=x[k].s||0;ch[k].n+=x[k].n||0}})});
   const days=Object.keys(by).map(Number),last=days.length?Math.max(...days):0;
@@ -144,7 +148,7 @@ function chartCum(c){
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${tl}${ac}${pj}${xt}</svg></div><div class="lg"><span><i style="background:#5fd3a6"></i>الفعلي التراكمي</span><span><i style="background:#f2c46d"></i>التارجت التراكمي</span><span><i style="background:#eaeef4"></i>التوقع لآخر الشهر</span></div>`
 }
 function chartBranches(){
-  const rows=cfg.branches.map(b=>({n:b.name,c:calc(b.id)}));
+  const rows=gb().map(b=>({n:b.name,c:calc(b.id)}));
   if(!rows.length)return '<span class="mut">أضف فروع</span>';
   const mx=Math.max(130,...rows.map(r=>Math.max(isFinite(r.c.pct)?r.c.pct:0,isFinite(r.c.pp)?r.c.pp:0)))*1.02;
   return rows.map(r=>{const a=isFinite(r.c.pct)?r.c.pct:0,p=isFinite(r.c.pp)?r.c.pp:0;
@@ -157,11 +161,11 @@ function chartChannels(c){
 }
 function total(){
   const c=calc('all');
-  return `<div class="grid">${card('إجمالي كل الفروع',c)}<div class="card"><h2>مبيعات كل يوم مقابل التارجت</h2>${chartDaily(c)}</div></div>
+  return `<div class="grid">${card('إجمالي '+GN[grp],c)}<div class="card"><h2>مبيعات كل يوم مقابل التارجت</h2>${chartDaily(c)}</div></div>
   <div class="card"><h2>التراكمي مقابل التارجت والتوقع</h2>${chartCum(c)}</div>
   <div class="grid"><div class="card"><h2>المحقق والمتوقع لكل فرع</h2>${chartBranches()}</div><div class="card"><h2>توزيع المبيعات حسب القناة</h2>${chartChannels(c)}</div></div>`
 }
-const summary=()=>`<div class="grid">${cfg.branches.map(b=>card(b.name,calc(b.id))).join('')||'<div class="card">أضف الفروع من الإعدادات</div>'}</div>`;
+const summary=()=>`<div class="grid">${gb().map(b=>card(b.name,calc(b.id))).join('')||'<div class="card">أضف الفروع من الإعدادات</div>'}</div>`;
 function daily(b){
   const c=calc(b),dt=c.T/c.D;let cs=0,ct=0,h='';
   for(let d=1;d<=c.last;d++){
@@ -172,7 +176,7 @@ function daily(b){
   return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="10">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dt*c.last):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dt?c.S/(dt*c.last)*100:NaN)}</td></tr></tfoot></table></div>`
 }
 function entry(){
-  const bs=isAdmin?cfg.branches:cfg.branches.filter(b=>b.id===me.branch);
+  const bs=isAdmin?gb():cfg.branches.filter(b=>b.id===me.branch);
   if(!bs.length)return `<div class="card">${isAdmin?'ابدأ بإضافة الفروع من تبويب الإعدادات.':'حسابك مش مربوط بفرع. كلم الأدمن.'}</div>`;
   return `<div class="card"><h2>إدخال مبيعات يوم</h2><div class="row">
   <div class="f"><label>الفرع</label><select id="eb">${bs.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')}</select></div>
@@ -197,11 +201,11 @@ async function saveE(){
     CH.forEach(k=>{$('#s_'+k).value='';$('#n_'+k).value=''});av();alert('تم الحفظ ✅')}catch(e){err(e)}
 }
 function settings(){
-  const t=cfg.targets[month]||{},bo=cfg.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
-  return `<div class="card"><h2>الفروع</h2><div class="row"><input id="nb" placeholder="اسم فرع جديد" style="flex:1"><button class="p" onclick="addB()">إضافة</button></div>
-  ${cfg.branches.map(b=>`<div class="kv"><span>${b.name}</span><button class="sm" onclick="delB('${b.id}')">حذف</button></div>`).join('')}</div>
+  const t=cfg.targets[month]||{},bo=cfg.branches.map(b=>`<option value="${b.id}">${bFull(b)}</option>`).join('');
+  return `<div class="card"><h2>فروع ${GN[grp]}</h2><div class="row"><input id="nb" placeholder="اسم فرع جديد في ${GN[grp]}" style="flex:1"><button class="p" onclick="addB()">إضافة</button></div>
+  ${gb().map(b=>`<div class="kv"><span>${b.name}</span><button class="sm" onclick="delB('${b.id}')">حذف</button></div>`).join('')}</div>
   <div class="card"><h2>التارجت الشهري (${month})</h2>
-  ${cfg.branches.map(b=>`<div class="row" style="margin-bottom:6px"><span style="flex:1">${b.name}</span><input type="number" inputmode="decimal" style="width:140px" value="${t[b.id]||''}" onchange="setT('${b.id}',this.value)"></div>`).join('')||'<span class="mut">أضف فروع الأول</span>'}
+  ${gb().map(b=>`<div class="row" style="margin-bottom:6px"><span style="flex:1">${b.name}</span><input type="number" inputmode="decimal" style="width:140px" value="${t[b.id]||''}" onchange="setT('${b.id}',this.value)"></div>`).join('')||'<span class="mut">أضف فروع الأول</span>'}
   <p class="mut">الإجمالي: <b>${N(tgt('all'))}</b></p></div>
   <div class="card"><h2>إنشاء حساب جديد</h2>
   <div class="row"><div class="f"><label>الاسم</label><input id="un"></div><div class="f"><label>الإيميل</label><input id="ue" type="email"></div></div>
@@ -211,10 +215,10 @@ function settings(){
   <button class="p" style="margin-top:8px" onclick="addU()">إنشاء الحساب</button></div>
   <div class="card"><h2>الحسابات</h2>${users.map(u=>`<div class="kv" style="flex-wrap:wrap"><span>${u.name||''}<br><span class="mut">${u.email||''}</span></span>
   <span class="row"><select style="width:90px" onchange="updU('${u.uid}',{role:this.value})"><option value="user" ${u.role==='user'?'selected':''}>يوزر</option><option value="admin" ${u.role==='admin'?'selected':''}>أدمن</option></select>
-  <select style="width:110px" onchange="updU('${u.uid}',{branch:this.value})"><option value="">—</option>${cfg.branches.map(b=>`<option value="${b.id}" ${u.branch===b.id?'selected':''}>${b.name}</option>`).join('')}</select>
+  <select style="width:110px" onchange="updU('${u.uid}',{branch:this.value})"><option value="">—</option>${cfg.branches.map(b=>`<option value="${b.id}" ${u.branch===b.id?'selected':''}>${bFull(b)}</option>`).join('')}</select>
   <button class="sm" onclick="resetU('${u.email}')">باسورد</button><button class="sm" onclick="delU('${u.uid}')">إيقاف</button></span></div>`).join('')||'<span class="mut">لا يوجد</span>'}</div>`
 }
-function addB(){const n=$('#nb').value.trim();if(!n)return;cfg.branches.push({id:'b'+Date.now(),name:n});saveCfg()}
+function addB(){const n=$('#nb').value.trim();if(!n)return;cfg.branches.push({id:'b'+Date.now(),name:n,group:grp});saveCfg()}
 function delB(id){if(!confirm('حذف الفرع؟ (البيانات القديمة هتفضل محفوظة)'))return;cfg.branches=cfg.branches.filter(b=>b.id!==id);saveCfg()}
 function setT(id,v){(cfg.targets[month]=cfg.targets[month]||{})[id]=+v;saveCfg()}
 async function addU(){
@@ -234,15 +238,105 @@ const updU=(id,d)=>db.doc('users/'+id).update(d).catch(err);
 const resetU=e=>auth.sendPasswordResetEmail(e).then(()=>alert('اتبعت لينك تغيير الباسورد')).catch(err);
 function delU(id){if(id===me.uid){alert('مينفعش توقف حسابك');return}if(confirm('إيقاف الحساب؟'))db.doc('users/'+id).delete().catch(err)}
 
+
+const MN=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],WD=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const chg=(a,b)=>b?(a-b)/b*100:NaN;
+const chs=x=>isFinite(x)?`<span class="${x>=0?'ok':'bad'}">${x>=0?'+':''}${N(x,1)}%</span>`:'—';
+const mkk=(y,m)=>y+'-'+String(m).padStart(2,'0');
+const tgtM=k=>{const t=cfg.targets[k]||{};return gb().reduce((a,b)=>a+(+t[b.id]||0),0)};
+function agg(rs){const o={S:0,I:0,ch:{},ds:new Set()};CH.forEach(k=>o.ch[k]={s:0,n:0});
+  rs.forEach(x=>{o.S+=x.sales;o.I+=x.invoices;o.ds.add(x.date);CH.forEach(k=>{if(x[k]){o.ch[k].s+=x[k].s||0;o.ch[k].n+=x[k].n||0}})});
+  o.days=o.ds.size;o.t=o.I?o.S/o.I:0;o.avg=o.days?o.S/o.days:0;return o}
+async function loadY(){
+  if(yLoad)return;yLoad=true;render();
+  try{const q=await db.collection('sales').where('date','>=',(yr-1)+'-01-01').where('date','<=',yr+'-12-31').get();yd=q.docs.map(d=>d.data())}
+  catch(e){yd=[];alert('تعذر تحميل بيانات المقارنة: '+(e.message||e))}
+  yLoaded=yr;yLoad=false;render()
+}
+function chartGrouped(labels,series,tl){
+  const W=640,H=240,L=46,R=8,T=14,B=28,n=labels.length;
+  let mx=0;series.forEach(s=>s.v.forEach(v=>mx=Math.max(mx,v||0)));(tl||[]).forEach(v=>mx=Math.max(mx,v||0));mx=(mx||1)*1.12;
+  const y=v=>T+(H-T-B)*(1-v/mx),gw=(W-L-R)/n,bw=gw*.74/series.length;
+  let g='';for(let i=0;i<=3;i++){const v=mx*i/3;g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1f4c6e"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8fa8bd">${K(v)}</text>`}
+  let b='';series.forEach((s,si)=>s.v.forEach((v,i)=>{if(v>0)b+=`<rect x="${L+i*gw+gw*.13+si*bw}" y="${y(v)}" width="${Math.max(bw-1,1)}" height="${H-B-y(v)}" rx="2" fill="${s.c}"/>`}));
+  let t='';(tl||[]).forEach((v,i)=>{if(v>0)t+=`<line x1="${L+i*gw+gw*.08}" x2="${L+(i+1)*gw-gw*.08}" y1="${y(v)}" y2="${y(v)}" stroke="#f2c46d" stroke-width="2.5"/>`});
+  const xl=labels.map((l,i)=>`<text x="${L+(i+.5)*gw}" y="${H-9}" text-anchor="middle" font-size="${n>8?10:11}" fill="#8fa8bd">${l}</text>`).join('');
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${b}${t}${xl}</svg></div>`
+}
+const lg=a=>`<div class="lg">${a.map(([c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join('')}</div>`;
+function analysis(){
+  if(yLoad)return '<div class="card">جاري تحميل بيانات السنة…</div>';
+  const G=gset(),all=yd.filter(x=>G.has(x.branch)),cur=all.filter(x=>x.date.slice(0,4)===String(yr)),prev=all.filter(x=>x.date.slice(0,4)===String(yr-1));
+  if(!all.length)return `<div class="card">لا توجد بيانات في ${yr-1} و${yr} لفروع ${GN[grp]}.</div>`;
+  const now=new Date(),curY=now.getFullYear(),curM=now.getMonth()+1;
+  const mo=[],mp=[],tg=[];
+  for(let m=1;m<=12;m++){mo.push(agg(cur.filter(x=>x.date.slice(0,7)===mkk(yr,m))));mp.push(agg(prev.filter(x=>x.date.slice(0,7)===mkk(yr-1,m))));tg.push(tgtM(mkk(yr,m)))}
+  const cut=cur.reduce((a,x)=>x.date>a?x.date:a,'');
+  const pcut=cut?prev.filter(x=>x.date.slice(5)<=cut.slice(5)):prev;
+  const yc=agg(cur),yp=agg(pcut);
+  // monthly table
+  let rowsH='',tS=0,tT=0,tI=0,tP=0;
+  for(let m=1;m<=12;m++){const o=mo[m-1],p=mp[m-1];if(!(o.S||p.S||tg[m-1]))continue;
+    const pm=m>1&&mo[m-2].S?chg(o.S,mo[m-2].S):NaN,tp=tg[m-1]?o.S/tg[m-1]*100:NaN;tS+=o.S;tT+=tg[m-1];tI+=o.I;tP+=p.S;
+    rowsH+=`<tr><td>${MN[m-1]}</td><td>${N(o.S)}</td><td>${tg[m-1]?N(tg[m-1]):'—'}</td><td class="${cls(tp)}">${P(tp)}</td><td>${N(o.I)}</td><td>${N(o.t,1)}</td><td>${p.S?N(p.S):'—'}</td><td>${chs(chg(o.S,p.S))}</td><td>${chs(pm)}</td></tr>`}
+  const monthly=`<div class="card sc"><h2>المقارنة الشهرية ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الشهر</th><th>المبيعات</th><th>التارجت</th><th>% التارجت</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>نفس الشهر ${yr-1}</th><th>نمو سنوي</th><th>عن الشهر السابق</th></tr></thead><tbody>${rowsH}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(tS)}</td><td>${tT?N(tT):'—'}</td><td>${tT?P(tS/tT*100):'—'}</td><td>${N(tI)}</td><td>${tI?N(tS/tI,1):'—'}</td><td>${N(tP)}</td><td>${chs(chg(tS,tP))}</td><td></td></tr></tfoot></table><p class="mut">الشهر الحالي لسه ما اكتملش، فنموه بيظهر أقل من الحقيقي.</p></div>`;
+  const labels=MN.map((_,i)=>String(i+1));
+  const mchart=`<div class="card"><h2>المبيعات الشهرية</h2>${chartGrouped(labels,[{c:'#4d7a9c',v:mp.map(o=>o.S)},{c:'#7fb4d9',v:mo.map(o=>o.S)}],tg)}${lg([['#4d7a9c',yr-1],['#7fb4d9',yr],['#f2c46d','التارجت']])}<p class="mut">الأرقام تحت الأعمدة هي رقم الشهر.</p></div>`;
+  // yearly KPIs
+  const kv=(l,a,b,d=0)=>`<div class="kv"><span>${l}</span><span><b>${N(a,d)}</b> <span class="mut">مقابل ${b?N(b,d):'—'}</span> ${chs(chg(a,b))}</span></div>`;
+  const kp=`<div class="card"><h2>المقارنة السنوية${cut?` (حتى ${cut.slice(8)}/${cut.slice(5,7)})`:''}</h2><p class="mut">${yr} مقابل نفس الفترة من ${yr-1}</p>${kv('المبيعات',yc.S,yp.S)}${kv('عدد الفواتير',yc.I,yp.I)}${kv('متوسط الفاتورة',yc.t,yp.t,1)}${kv('أيام التشغيل',yc.days,yp.days)}${kv('متوسط المبيعات اليومي',yc.avg,yp.avg)}</div>`;
+  // branches
+  const br=gb().map(b=>({n:b.name,a:agg(cur.filter(x=>x.branch===b.id)),p:agg(pcut.filter(x=>x.branch===b.id))})).sort((a,b)=>b.a.S-a.a.S);
+  const bt=`<div class="card sc"><h2>الفروع: ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الفرع</th><th>المبيعات</th><th>النسبة</th><th>نفس الفترة ${yr-1}</th><th>النمو</th><th>متوسط الفاتورة</th></tr></thead><tbody>${br.map(r=>`<tr><td>${r.n}</td><td>${N(r.a.S)}</td><td>${yc.S?N(r.a.S/yc.S*100,1)+'%':'—'}</td><td>${r.p.S?N(r.p.S):'—'}</td><td>${chs(chg(r.a.S,r.p.S))}</td><td>${N(r.a.t,1)}</td></tr>`).join('')}</tbody></table></div>`;
+  // weekday + top days
+  const base=cur.length?cur:prev,ds={};base.forEach(x=>ds[x.date]=(ds[x.date]||0)+x.sales);
+  const wsum=Array(7).fill(0),wn=Array(7).fill(0);Object.keys(ds).forEach(d=>{const w=new Date(d+'T12:00:00').getDay();wsum[w]+=ds[d];wn[w]++});
+  const order=[6,0,1,2,3,4,5],wavg=order.map(w=>wn[w]?wsum[w]/wn[w]:0);
+  const wchart=`<div class="card"><h2>متوسط المبيعات حسب يوم الأسبوع (${cur.length?yr:yr-1})</h2>${chartGrouped(order.map(w=>WD[w]),[{c:'#7fb4d9',v:wavg}],null)}</div>`;
+  const top=Object.keys(ds).sort((a,b)=>ds[b]-ds[a]).slice(0,5);
+  const topH=`<div class="card"><h2>أعلى 5 أيام مبيعات</h2>${top.map((d,i)=>`<div class="kv"><span>${i+1}. ${d.slice(8)}/${d.slice(5,7)}/${d.slice(0,4)} <span class="mut">${WD[new Date(d+'T12:00:00').getDay()]}</span></span><b>${N(ds[d])}</b></div>`).join('')}</div>`;
+  // ticket chart
+  const tchart=`<div class="card"><h2>متوسط الفاتورة شهريًا</h2>${chartGrouped(labels,[{c:'#4d7a9c',v:mp.map(o=>o.t)},{c:'#7fb4d9',v:mo.map(o=>o.t)}],null)}${lg([['#4d7a9c',yr-1],['#7fb4d9',yr]])}</div>`;
+  // channels
+  const cc={dine:'#7fb4d9',take:'#5fd3a6',del:'#f2c46d',cat:'#c9a7ff'};
+  const cTot=CH.reduce((a,k)=>a+yc.ch[k].s,0),pTot=CH.reduce((a,k)=>a+yp.ch[k].s,0);
+  const chT=cTot?`<div class="card sc"><h2>القنوات: ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>القناة</th><th>المبيعات</th><th>النسبة</th><th>نسبتها ${yr-1}</th><th>النمو</th><th>الفواتير</th></tr></thead><tbody>${CH.map(k=>`<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${cc[k]};margin-inline-end:6px"></i>${CL[k]}</td><td>${N(yc.ch[k].s)}</td><td>${N(yc.ch[k].s/cTot*100,1)}%</td><td>${pTot?N(yp.ch[k].s/pTot*100,1)+'%':'—'}</td><td>${chs(chg(yc.ch[k].s,yp.ch[k].s))}</td><td>${N(yc.ch[k].n)}</td></tr>`).join('')}</tbody></table></div>`:'';
+  // month vs month
+  const ks=[];for(const y of [yr-1,yr])for(let m=1;m<=12;m++)if(all.some(x=>x.date.slice(0,7)===mkk(y,m)))ks.push(mkk(y,m));
+  if(!ks.includes(cmpA))cmpA=ks[ks.length-1];if(!ks.includes(cmpB))cmpB=ks.length>1?ks[ks.length-2]:ks[0];
+  const ml=k=>MN[+k.slice(5)-1]+' '+k.slice(0,4),opt=v=>ks.map(k=>`<option value="${k}" ${k===v?'selected':''}>${ml(k)}</option>`).join('');
+  const A=agg(all.filter(x=>x.date.slice(0,7)===cmpA)),B=agg(all.filter(x=>x.date.slice(0,7)===cmpB));
+  const mr=[['المبيعات',A.S,B.S,0],['عدد الفواتير',A.I,B.I,0],['متوسط الفاتورة',A.t,B.t,1],['أيام التشغيل',A.days,B.days,0],['متوسط المبيعات اليومي',A.avg,B.avg,0],...CH.map(k=>[CL[k],A.ch[k].s,B.ch[k].s,0])];
+  const mvm=`<div class="card sc"><h2>مقارنة شهر بشهر</h2><div class="row" style="margin-bottom:8px"><div class="f"><label>الشهر الأول</label><select onchange="cmpA=this.value;render()">${opt(cmpA)}</select></div><div class="f"><label>الشهر التاني</label><select onchange="cmpB=this.value;render()">${opt(cmpB)}</select></div></div><table><thead><tr><th>المقياس</th><th>${ml(cmpA)}</th><th>${ml(cmpB)}</th><th>الفرق</th><th>%</th></tr></thead><tbody>${mr.map(([l,a,b,d])=>`<tr><td>${l}</td><td>${N(a,d)}</td><td>${N(b,d)}</td><td class="${a-b>=0?'ok':'bad'}">${a-b>=0?'+':''}${N(a-b,d)}</td><td>${chs(chg(a,b))}</td></tr>`).join('')}</tbody></table></div>`;
+  // insights
+  const ins=[];
+  const bm=mo.map((o,i)=>[o.S,i]).filter(a=>a[0]>0).sort((a,b)=>b[0]-a[0]);
+  if(bm.length>1)ins.push(`أعلى شهر في ${yr}: ${MN[bm[0][1]]} (${N(bm[0][0])})، وأقل شهر: ${MN[bm[bm.length-1][1]]} (${N(bm[bm.length-1][0])}).`);
+  const g=chg(yc.S,yp.S);if(isFinite(g))ins.push(`مبيعات ${yr} ${g>=0?'أعلى':'أقل'} من نفس الفترة في ${yr-1} بنسبة ${N(Math.abs(g),1)}%.`);
+  const gt=chg(yc.t,yp.t);if(isFinite(gt))ins.push(`متوسط الفاتورة ${gt>=0?'زاد':'قل'} ${N(Math.abs(gt),1)}% (من ${N(yp.t,1)} إلى ${N(yc.t,1)}).`);
+  const wi=order.map((w,i)=>[wavg[i],w]).filter(a=>a[0]>0).sort((a,b)=>b[0]-a[0]);
+  if(wi.length>1)ins.push(`أقوى يوم في الأسبوع: ${WD[wi[0][1]]} (متوسط ${N(wi[0][0])})، وأضعف يوم: ${WD[wi[wi.length-1][1]]} (متوسط ${N(wi[wi.length-1][0])}).`);
+  if(cTot){const tc=CH.slice().sort((a,b)=>yc.ch[b].s-yc.ch[a].s)[0];ins.push(`أكبر قناة مبيعات: ${CL[tc]} بنسبة ${N(yc.ch[tc].s/cTot*100,1)}% من المبيعات.`);
+    const gr=CH.filter(k=>yp.ch[k].s>0).map(k=>[chg(yc.ch[k].s,yp.ch[k].s),k]).sort((a,b)=>b[0]-a[0]);if(gr.length)ins.push(`أسرع قناة نموًا: ${CL[gr[0][1]]} (${gr[0][0]>=0?'+':''}${N(gr[0][0],1)}%).`)}
+  const bg=br.filter(r=>r.p.S>0).map(r=>[chg(r.a.S,r.p.S),r.n]).sort((a,b)=>b[0]-a[0]);
+  if(bg.length>1)ins.push(`أفضل نمو بين الفروع: ${bg[0][1]} (${bg[0][0]>=0?'+':''}${N(bg[0][0],1)}%)، وأضعفها: ${bg[bg.length-1][1]} (${bg[bg.length-1][0]>=0?'+':''}${N(bg[bg.length-1][0],1)}%).`);
+  const wt=[];for(let m=1;m<=12;m++)if(tg[m-1]&&mo[m-1].S&&(yr<curY||m<curM))wt.push(mo[m-1].S>=tg[m-1]);
+  if(wt.length)ins.push(`تم تحقيق التارجت الشهري في ${wt.filter(Boolean).length} من ${wt.length} شهر مكتمل.`);
+  const insH=`<div class="card"><h2>ملخص التحليل</h2>${ins.map(t=>`<div class="kv"><span>• ${t}</span></div>`).join('')||'<span class="mut">محتاج بيانات أكتر للتحليل.</span>'}</div>`;
+  return `<h2 style="margin:4px 0 10px">تحليل ${GN[grp]}</h2>${insH}${kp}${mchart}${monthly}${mvm}<div class="grid">${bt}${chT||''}</div><div class="grid">${wchart}${tchart}</div>${topH}`
+}
 function render(){
   if(!me)return;
   if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei)/.test(document.activeElement.id))return;
-  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي']];
+  if(isAdmin&&tab==='ana'&&yLoaded!==yr&&!yLoad){loadY();return}
+  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['ana','مقارنات وتحليل'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي']];
+  const gsw=isAdmin?`<div class="tabs">${Object.keys(GN).map(g=>`<button class="${grp===g?'on':''}" onclick="grp='${g}';fb='all';render()">${GN[g]}</button>`).join('')}</div>`:'';
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
-  ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${cfg.branches.map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
-  const body=tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='set'?settings():entry();
+  ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${gb().map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
+  const cy=new Date().getFullYear(),ysel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>السنة</label><select onchange="yr=+this.value;yLoaded=0;loadY()">${[0,1,2,3,4].map(i=>cy-i).map(y=>`<option ${y===yr?'selected':''}>${y}</option>`).join('')}</select></div><div class="f"><label>&nbsp;</label><button onclick="yLoaded=0;loadY()">تحديث البيانات</button></div></div>`;
+  const body=tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='ana'?analysis():tab==='set'?settings():entry();
   $('#app').className='';
-  $('#app').innerHTML=`<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${tab==='set'||(tab==='entry'&&!isAdmin)?'':fsel}${body}`;
+  $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
 }
 </script>
 </body>
