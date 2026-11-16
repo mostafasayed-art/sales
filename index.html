@@ -77,7 +77,8 @@ auth.onAuthStateChanged(async u=>{
     $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
     unsubs.push(db.doc('config/main').onSnapshot(d=>{if(d.exists)cfg=Object.assign({branches:[],targets:{}},d.data());render()}));
     if(isAdmin)unsubs.push(db.collection('users').onSnapshot(q=>{users=q.docs.map(d=>({uid:d.id,...d.data()}));if(tab==='set')render()}));
-    if(isAdmin)unsubs.push(db.collection('headcount').onSnapshot(q=>{hcErr=false;q.docChanges().forEach(ch=>{if(ch.type==='removed')delete hc[ch.doc.id];else hc[ch.doc.id]=ch.doc.data()});if(tab==='hc')render()},e=>{hcErr=true;if(tab==='hc')render()}));
+    if(isAdmin)unsubs.push(db.collection('headcount').onSnapshot(q=>{hcErr='';q.docChanges().forEach(ch=>{if(ch.type==='removed')delete hc[ch.doc.id];else hc[ch.doc.id]=ch.doc.data()});if(tab==='hc')render()},e=>{hcErr=e.message||'error';if(tab==='hc')render()}));
+    else if(me.branch)unsubs.push(db.doc('headcount/'+me.branch).onSnapshot(d=>{hcErr='';if(d.exists)hc[me.branch]=d.data();else delete hc[me.branch];if(tab==='hc')render()},e=>{hcErr=e.message||'error';if(tab==='hc')render()}));
     sub();
   }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
 });
@@ -413,7 +414,7 @@ function importCard(){
 }
 const HT=['Restaurant Manager','Assistant Mgr.','Floor Supervisor','Team Leader','Waiter','Food Runner','Barista','Head barista','Dispatcher','Counter Sales'];
 const HS=['RM','AM','FS','TL','Waiter','Runner','Barista','H.Bar','Disp','Counter'];
-let hc={},hb='all',hedit=null,hcErr=false;
+let hc={},hb='all',hedit=null,hcErr='';
 const hesc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eid=()=>'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 function hcCalc(bid){
@@ -447,17 +448,29 @@ function hcTotal(){
   const ch=`<div class="grid"><div class="card"><h2>الفروع: الموجود والمطلوب</h2>${chartGrouped(rs.map(x=>x.b.name),[{c:'#7fb4d9',v:rs.map(x=>x.c.act)}],rs.map(x=>x.c.req))}${L}</div><div class="card"><h2>الوظائف: الموجود والمطلوب</h2>${chartGrouped(HS,[{c:'#7fb4d9',v:T.cnt}],T.rq)}${L}<p class="mut">${HS.map((s,i)=>s+' = '+HT[i]).join(' · ')}</p></div></div>`;
   return `<div class="grid">${kpi}${gp}</div>${bt}${mt}${ch}`
 }
-function hcBranch(bid){
-  const c=hcCalc(bid),d=hc[bid]||{},cov=c.req?c.act/c.req*100:NaN;
-  const kpi=`<div class="card"><h2>${bName(bid)}</h2><div class="kv"><span>عدد الموظفين الحالي</span><b>${c.act}</b></div><div class="kv"><span>المطلوب</span><b>${c.req||'—'}</b></div><div class="kv"><span>الحالة</span><b>${hst(c.act,c.req)}</b></div><div class="kv"><span>نسبة التغطية</span><b class="${cls(cov)}">${P(cov)}</b></div>${c.un?`<div class="kv"><span>موظفين بدون وظيفة (اختارها من الجدول تحت)</span><b class="warn">${c.un}</b></div>`:''}</div>`;
-  const tb=`<div class="card sc"><h2>الوظائف: المطلوب مقابل الموجود</h2><table><thead><tr><th>الوظيفة</th><th>المطلوب</th><th>الموجود</th><th>الفرق</th></tr></thead><tbody>${HT.map((t,i)=>`<tr><td style="text-align:start">${t}</td><td><input id="hr_${i}" type="number" min="0" style="width:70px" value="${c.rq[i]||''}" onchange="hcReq('${bid}',${i},this.value)"></td><td>${c.cnt[i]}</td><td>${hst(c.cnt[i],c.rq[i])}</td></tr>`).join('')}</tbody><tfoot><tr><td>الإجمالي</td><td>${c.req||'—'}</td><td>${c.act}</td><td>${hst(c.act,c.req)}</td></tr></tfoot></table>
-  <div class="f" style="margin-top:8px"><label>إجمالي عدد الموظفين المطلوب للفرع (بيُستخدم لو مش كاتب مطلوب لكل وظيفة)</label><input id="hq" type="number" min="0" value="${d.reqT||''}" onchange="hcReqT('${bid}',this.value)"></div></div>`;
+function hcBranch(bid,ro){
+  const c=hcCalc(bid),d=hc[bid]||{},cov=c.req?c.act/c.req*100:NaN,others=cfg.branches.filter(b=>b.id!==bid);
+  const kpi=`<div class="card"><h2>${bName(bid)}</h2><div class="kv"><span>عدد الموظفين الحالي</span><b>${c.act}</b></div><div class="kv"><span>المطلوب</span><b>${c.req||'—'}</b></div><div class="kv"><span>الحالة</span><b>${hst(c.act,c.req)}</b></div><div class="kv"><span>نسبة التغطية</span><b class="${cls(cov)}">${P(cov)}</b></div>${c.un?`<div class="kv"><span>${ro?'موظفين بدون وظيفة محددة':'موظفين بدون وظيفة (اختارها من الجدول تحت)'}</span><b class="warn">${c.un}</b></div>`:''}</div>`;
+  const tb=`<div class="card sc"><h2>الوظائف: المطلوب مقابل الموجود</h2><table><thead><tr><th>الوظيفة</th><th>المطلوب</th><th>الموجود</th><th>الفرق</th></tr></thead><tbody>${HT.map((t,i)=>`<tr><td style="text-align:start">${t}</td><td>${ro?(c.rq[i]||'—'):`<input id="hr_${i}" type="number" min="0" style="width:70px" value="${c.rq[i]||''}" onchange="hcReq('${bid}',${i},this.value)">`}</td><td>${c.cnt[i]}</td><td>${hst(c.cnt[i],c.rq[i])}</td></tr>`).join('')}</tbody><tfoot><tr><td>الإجمالي</td><td>${c.req||'—'}</td><td>${c.act}</td><td>${hst(c.act,c.req)}</td></tr></tfoot></table>
+  ${ro?'':`<div class="f" style="margin-top:8px"><label>إجمالي عدد الموظفين المطلوب للفرع (بيُستخدم لو مش كاتب مطلوب لكل وظيفة)</label><input id="hq" type="number" min="0" value="${d.reqT||''}" onchange="hcReqT('${bid}',this.value)"></div>`}</div>`;
   const emps=c.emps.slice().sort((a,b)=>HT.indexOf(a.title)-HT.indexOf(b.title)||String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
-  const et=`<div class="card sc"><h2>الموظفين (${emps.length})</h2><table><thead><tr><th>الرقم الوظيفي</th><th>الاسم</th><th>الوظيفة</th><th>ملاحظات</th><th></th></tr></thead><tbody>${emps.map(e=>`<tr><td>${hesc(e.no)}</td><td style="text-align:start">${hesc(e.name)}</td><td><select style="min-width:150px;${HT.includes(e.title)?'':'border-color:var(--bad)'}" onchange="hcTitle('${bid}','${e.id}',this.value)"><option value="" ${HT.includes(e.title)?'':'selected'}>— اختار الوظيفة —</option>${HT.map(t=>`<option ${e.title===t?'selected':''}>${t}</option>`).join('')}</select></td><td style="text-align:start;white-space:normal">${hesc(e.note)}</td><td><button class="sm" onclick="hcEdit('${e.id}')">تعديل</button> <button class="sm" onclick="hcDel('${bid}','${e.id}')">حذف</button></td></tr>`).join('')||'<tr><td colspan="5">لا يوجد موظفين</td></tr>'}</tbody></table></div>`;
+  const ttl=e=>ro?`<td>${hesc(e.title)||'—'}</td>`:`<td><select style="min-width:150px;${HT.includes(e.title)?'':'border-color:var(--bad)'}" onchange="hcTitle('${bid}','${e.id}',this.value)"><option value="" ${HT.includes(e.title)?'':'selected'}>— اختار الوظيفة —</option>${HT.map(t=>`<option ${e.title===t?'selected':''}>${t}</option>`).join('')}</select></td>`;
+  const act=e=>ro?'':`<td style="white-space:nowrap"><select style="width:auto;min-width:110px" onchange="hcMove('${bid}','${e.id}',this.value)"><option value="">نقل إلى…</option>${others.map(b=>`<option value="${b.id}">${bFull(b)}</option>`).join('')}</select> <button class="sm" onclick="hcEdit('${e.id}')">تعديل</button> <button class="sm" onclick="hcDel('${bid}','${e.id}')">حذف</button></td>`;
+  const et=`<div class="card sc"><h2>الموظفين (${emps.length})</h2><table><thead><tr><th>الرقم الوظيفي</th><th>الاسم</th><th>الوظيفة</th><th>ملاحظات</th>${ro?'':'<th></th>'}</tr></thead><tbody>${emps.map(e=>`<tr><td>${hesc(e.no)}</td><td style="text-align:start">${hesc(e.name)}</td>${ttl(e)}<td style="text-align:start;white-space:normal">${hesc(e.note)}</td>${act(e)}</tr>`).join('')||`<tr><td colspan="${ro?4:5}">لا يوجد موظفين</td></tr>`}</tbody></table></div>`;
   const ed=hedit&&emps.find(e=>e.id===hedit)||null;
-  const form=`<div class="card"><h2>${ed?'تعديل موظف':'إضافة موظف'}</h2><div class="row"><div class="f"><label>الرقم الوظيفي</label><input id="hn" value="${hesc(ed?ed.no:'')}"></div><div class="f"><label>الاسم</label><input id="hm" value="${hesc(ed?ed.name:'')}"></div><div class="f"><label>الوظيفة</label><select id="ht"><option value="">— اختار الوظيفة —</option>${HT.map(t=>`<option ${ed&&ed.title===t?'selected':''}>${t}</option>`).join('')}</select></div></div><div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="hz" value="${hesc(ed?ed.note:'')}"></div><div class="row" style="margin-top:8px"><button class="p" onclick="hcSave('${bid}')">${ed?'حفظ التعديل':'إضافة'}</button>${ed?'<button onclick="hedit=null;render()">إلغاء</button>':''}</div></div>`;
-  const imp=`<div class="card"><h2>استيراد موظفين من Excel</h2><p class="mut">الأعمدة بالترتيب: الرقم الوظيفي، الاسم، الوظيفة، ملاحظات. لو الوظيفة فاضية أو مش من القايمة بيتضاف الموظف بدون وظيفة وتختارها من الجدول. الرقم الموجود بيتحدّث والباقي بيتضاف.</p><input id="hfile" type="file" accept=".xlsx,.xls,.csv" onchange="hcImport(this,'${bid}')"></div>`;
+  const form=ro?'':`<div class="card"><h2>${ed?'تعديل موظف':'إضافة موظف'}</h2><div class="row"><div class="f"><label>الرقم الوظيفي</label><input id="hn" value="${hesc(ed?ed.no:'')}"></div><div class="f"><label>الاسم</label><input id="hm" value="${hesc(ed?ed.name:'')}"></div><div class="f"><label>الوظيفة</label><select id="ht"><option value="">— اختار الوظيفة —</option>${HT.map(t=>`<option ${ed&&ed.title===t?'selected':''}>${t}</option>`).join('')}</select></div></div><div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="hz" value="${hesc(ed?ed.note:'')}"></div><div class="row" style="margin-top:8px"><button class="p" onclick="hcSave('${bid}')">${ed?'حفظ التعديل':'إضافة'}</button>${ed?'<button onclick="hedit=null;render()">إلغاء</button>':''}</div></div>`;
+  const imp=ro?'':`<div class="card"><h2>استيراد موظفين من Excel</h2><p class="mut">الأعمدة بالترتيب: الرقم الوظيفي، الاسم، الوظيفة، ملاحظات. لو الوظيفة فاضية أو مش من القايمة بيتضاف الموظف بدون وظيفة وتختارها من الجدول. الرقم الموجود بيتحدّث والباقي بيتضاف.</p><input id="hfile" type="file" accept=".xlsx,.xls,.csv" onchange="hcImport(this,'${bid}')"></div>`;
   return `<div class="grid">${kpi}${form}</div>${tb}${et}${imp}`
+}
+async function hcMove(bid,id,to){
+  if(!to)return;
+  const src=(hc[bid]||{}).emps||[],e=src.find(x=>x.id===id),tbr=cfg.branches.find(b=>b.id===to);
+  if(!e||!tbr)return;
+  if(!confirm(`نقل ${e.name} من ${bName(bid)} إلى ${tbr.name}؟`)){render();return}
+  const bt=db.batch();
+  bt.set(db.doc('headcount/'+bid),{emps:src.filter(x=>x.id!==id)},{merge:true});
+  bt.set(db.doc('headcount/'+to),{emps:[...((hc[to]||{}).emps||[]),e]},{merge:true});
+  try{await bt.commit()}catch(x){err(x)}
 }
 const hcSet=(bid,o)=>db.doc('headcount/'+bid).set(o,{merge:true}).catch(err);
 const hcReq=(bid,i,v)=>hcSet(bid,{req:{[i]:+v||0}});
@@ -496,8 +509,9 @@ async function hcImport(inp,bid){
   inp.value=''
 }
 function hcView(){
+  const note=hcErr?`<div class="card"><b class="bad">مش قادر أقرأ بيانات الـ Headcount.</b><p class="mut">${hesc(hcErr)} · حسابك: ${me.role}</p><p class="mut">لازم تنشر قواعد Firestore الجديدة (ملف firestore.rules) في نفس مشروع Ovio sales وتدوس Publish، وبعدها اعمل Refresh.</p></div>`:'';
+  if(!isAdmin)return `${note}${me.branch?hcBranch(me.branch,true):'<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>'}`;
   const bs=gb();if(hb!=='all'&&!bs.some(b=>b.id===hb))hb='all';
-  const note=hcErr?`<div class="card"><b class="bad">مش قادر أقرأ بيانات الـ Headcount.</b><p class="mut">لازم تضيف قاعدة headcount في Firebase Rules وتعمل Publish، وبعدها اعمل Refresh.</p></div>`:'';
   const chips=`<div class="tabs"><button class="${hb==='all'?'on':''}" onclick="hb='all';hedit=null;render()">الإجمالي</button>${bs.map(b=>`<button class="${hb===b.id?'on':''}" onclick="hb='${b.id}';hedit=null;render()">${b.name}</button>`).join('')}</div>`;
   return `${note}${chips}${hb==='all'?hcTotal():hcBranch(hb)}`
 }
@@ -505,7 +519,7 @@ function render(){
   if(!me)return;
   if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei|q_|h)/.test(document.activeElement.id))return;
   if(isAdmin&&tab==='ana'&&yLoaded!==yr&&!yLoad){loadY();return}
-  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['ana','مقارنات وتحليل'],['hc','Headcount'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي']];
+  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['ana','مقارنات وتحليل'],['hc','Headcount'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي'],['hc','Headcount']];
   const gsw=isAdmin?`<div class="tabs">${Object.keys(GN).map(g=>`<button class="${grp===g?'on':''}" onclick="grp='${g}';fb='all';render()">${GN[g]}</button>`).join('')}</div>`:'';
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
   ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${gb().map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;

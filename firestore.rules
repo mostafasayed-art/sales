@@ -14,7 +14,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /headcount/{d} {
-      allow read, write: if isAdmin();
+      allow write: if isAdmin();
+      allow read: if isAdmin() || (signed() && me().branch == d);
     }
     match /sales/{s} {
       allow read: if signed();
