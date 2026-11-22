@@ -515,6 +515,87 @@ function hcView(){
   const chips=`<div class="tabs"><button class="${hb==='all'?'on':''}" onclick="hb='all';hedit=null;render()">الإجمالي</button>${bs.map(b=>`<button class="${hb===b.id?'on':''}" onclick="hb='${b.id}';hedit=null;render()">${b.name}</button>`).join('')}</div>`;
   return `${note}${chips}${hb==='all'?hcTotal():hcBranch(hb)}`
 }
+const nn=x=>isFinite(x)&&x!==''?Math.round(x*100)/100:'';
+const gRows=list=>{const G=gset();return list.filter(x=>G.has(x.branch))};
+function brSheet(){
+  const L=[['الفرع','المبيعات','التارجت','% المحقق','الفواتير','متوسط الفاتورة','متوسط المبيعات اليومي','المتوقع آخر الشهر','% المتوقع']];
+  const row=(n,c)=>[n,nn(c.S),c.T||'',nn(c.pct),c.I,nn(c.ticket),nn(c.avg),nn(c.proj),nn(c.pp)];
+  gb().forEach(b=>L.push(row(b.name,calc(b.id))));L.push(row('الإجمالي',calc('all')));
+  return{name:'الفروع',rows:L}
+}
+function dailySheet(b){
+  const c=calc(b),dt=c.T?c.T/c.D:0,L=[['التاريخ','المبيعات','الفواتير','متوسط الفاتورة','تارجت اليوم','الفرق','% اليوم','تراكمي','تارجت تراكمي','% تراكمي']];
+  let cs=0,ct=0;
+  for(let d=1;d<=c.last;d++){const x=c.by[d]||{s:0,i:0};cs+=x.s;ct+=dt;L.push([month+'-'+pad2(d),nn(x.s),x.i,x.i?nn(x.s/x.i):0,dt?nn(dt):'',dt?nn(x.s-dt):'',dt?nn(x.s/dt*100):'',nn(cs),dt?nn(ct):'',ct?nn(cs/ct*100):''])}
+  L.push(['الإجمالي',nn(c.S),c.I,nn(c.ticket),'','','',nn(c.S),'','']);
+  return{name:'يوم بيوم',rows:L}
+}
+function chSheet(){
+  const h=['الفرع'];CH.forEach(k=>h.push(CL[k]+' مبيعات',CL[k]+' فواتير'));h.push('إجمالي المبيعات','إجمالي الفواتير');
+  const L=[h],row=(n,c)=>{const r=[n];CH.forEach(k=>r.push(nn(c.ch[k].s),c.ch[k].n));r.push(nn(c.S),c.I);return r};
+  gb().forEach(b=>L.push(row(b.name,calc(b.id))));L.push(row('الإجمالي',calc('all')));
+  return{name:'القنوات',rows:L}
+}
+function rawSheet(list){
+  const h=['التاريخ','الفرع'];CH.forEach(k=>h.push(CL[k]+' مبيعات',CL[k]+' فواتير'));h.push('إجمالي المبيعات (اختياري)','إجمالي الفواتير (اختياري)');
+  const L=[h],bn=x=>bName(x.branch);
+  list.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:bn(a)<bn(b)?-1:1).forEach(x=>{
+    const r=[x.date,bn(x)];let s=0;CH.forEach(k=>{const v=x[k]||{};r.push(v.s||0,v.n||0);s+=v.s||0});
+    r.push(s>0?'':nn(x.sales),s>0?'':x.invoices);L.push(r)});
+  return{name:'بيانات خام',rows:L,noPdf:true}
+}
+function hcEmpRows(list,withB){
+  return list.slice().sort((a,b)=>(a.bn||'').localeCompare(b.bn||'')||HT.indexOf(a.title)-HT.indexOf(b.title)||String(a.no).localeCompare(String(b.no),undefined,{numeric:true})).map(e=>[...(withB?[e.bn]:[]),e.no,e.name,e.title||'بدون وظيفة',e.note||''])
+}
+function hcExp(){
+  const g=GN[grp],bid=isAdmin?hb:me.branch;
+  if(bid&&bid!=='all'){
+    const c=hcCalc(bid),n=bName(bid);
+    return{title:`Headcount — ${n}`,file:`headcount-${n}`,sheets:[
+      {name:'الوظائف',rows:[['الوظيفة','المطلوب','الموجود','الفرق (سالب = عجز)'],...HT.map((t,i)=>[t,c.rq[i]||'',c.cnt[i],c.rq[i]?c.cnt[i]-c.rq[i]:'']),['الإجمالي',c.req||'',c.act,c.req?c.act-c.req:'']]},
+      {name:'الموظفين',rows:[['الرقم الوظيفي','الاسم','الوظيفة','ملاحظات'],...hcEmpRows(c.emps.map(e=>({...e,bn:n})),false)]}]}
+  }
+  const{rs,T}=hcAll(),mx=f=>[...rs.map(x=>f(x.c)),0];
+  const all=[];rs.forEach(({b,c})=>c.emps.forEach(e=>all.push({...e,bn:b.name})));
+  return{title:`Headcount — ${g}`,file:`headcount-${grp}`,sheets:[
+    {name:'الفروع',rows:[['الفرع','الموجود','المطلوب','العجز','الزيادة','% التغطية'],...rs.map(({b,c})=>[b.name,c.act,c.req||'',c.req?c.short:'',c.req?c.over:'',c.req?nn(c.act/c.req*100):'']),['الإجمالي',T.act,T.req||'',T.req?T.short:'',T.req?T.over:'',T.req?nn(T.act/T.req*100):'']]},
+    {name:'الموجود حسب الوظيفة',rows:[['الوظيفة',...rs.map(x=>x.b.name),'الإجمالي'],...HT.map((t,i)=>[t,...rs.map(x=>x.c.cnt[i]),T.cnt[i]]),['الإجمالي',...rs.map(x=>x.c.act),T.act]]},
+    {name:'المطلوب حسب الوظيفة',rows:[['الوظيفة',...rs.map(x=>x.b.name),'الإجمالي'],...HT.map((t,i)=>[t,...rs.map(x=>x.c.rq[i]||''),T.rq[i]||''])]},
+    {name:'العجز حسب الوظيفة',rows:[['الوظيفة',...rs.map(x=>x.b.name),'الإجمالي'],...HT.map((t,i)=>[t,...rs.map(x=>x.c.rq[i]?Math.max(0,x.c.rq[i]-x.c.cnt[i]):''),T.rq[i]?Math.max(0,T.rq[i]-T.cnt[i]):''])]},
+    {name:'كل الموظفين',rows:[['الفرع','الرقم الوظيفي','الاسم','الوظيفة','ملاحظات'],...hcEmpRows(all,true)]}]}
+}
+function expData(){
+  const g=GN[grp];
+  if(tab==='tot'||tab==='sum')return{title:`مبيعات ${g} — ${month}`,file:`sales-${grp}-${month}`,sheets:[brSheet(),dailySheet('all'),chSheet()]};
+  if(tab==='day'){const n=fb==='all'?g:bName(fb);return{title:`مبيعات ${n} — ${month}`,file:`sales-${n}-${month}`,sheets:[dailySheet(fb),rawSheet(rows.filter(x=>fb==='all'?gset().has(x.branch):x.branch===fb))]}}
+  if(tab==='ana'){if(yLoad||yLoaded!==yr||!yd.length){alert('استنى لحد ما بيانات السنة تتحمّل');return null}return{title:`بيانات المبيعات ${g} — ${yr-1} و${yr}`,file:`sales-raw-${grp}-${yr-1}-${yr}`,sheets:[rawSheet(gRows(yd))]}}
+  if(tab==='hc')return hcExp();
+  return null
+}
+function csvOut(file,sheets){
+  const q=v=>{v=v==null?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const t=sheets.map(s=>s.name+'\r\n'+s.rows.map(r=>r.map(q).join(',')).join('\r\n')).join('\r\n\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}));a.download=file+'.csv';a.click();
+  alert('مكتبة Excel ما اتحملتش فنزّلت ملف CSV بدل xlsx (بيتفتح في Excel عادي).')
+}
+async function xlsxOut(file,sheets){
+  try{await loadXLSX();const wb=XLSX.utils.book_new();
+    sheets.forEach(s=>{const ws=XLSX.utils.aoa_to_sheet(s.rows);ws['!cols']=s.rows[0].map((_,i)=>({wch:Math.min(40,s.rows.reduce((m,r)=>Math.max(m,String(r[i]==null?'':r[i]).length),8))}));XLSX.utils.book_append_sheet(wb,ws,s.name.slice(0,31))});
+    XLSX.writeFile(wb,file.replace(/[\\/:*?"<>|]/g,'-')+'.xlsx')}
+  catch(e){csvOut(file,sheets)}
+}
+function pdfPrint(title,sheets){
+  const f2=v=>typeof v==='number'?(Number.isInteger(v)?N(v):N(v,2)):hesc(v==null?'':v);
+  const tbl=s=>`<h2>${hesc(s.name)}</h2><table><thead><tr>${s.rows[0].map(h=>`<th>${hesc(h)}</th>`).join('')}</tr></thead><tbody>${s.rows.slice(1).map(r=>`<tr${r[0]==='الإجمالي'?' style="font-weight:700"':''}>${r.map(v=>`<td>${f2(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${hesc(title)}</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Cairo,Tahoma,Arial,sans-serif;color:#111;margin:0}h1{font-size:18px;margin:0 0 4px}.m{color:#666;font-size:11px;margin-bottom:10px}h2{font-size:14px;margin:16px 0 6px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #bbb;padding:4px 6px;text-align:center}th{background:#e9edf2}tr:nth-child(even) td{background:#fafafa}thead{display:table-header-group}tr{page-break-inside:avoid}</style></head><body><h1>Ovio — ${hesc(title)}</h1><div class="m">${new Date().toLocaleString('en-GB')}</div>${sheets.map(tbl).join('')}</body></html>`;
+  const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
+  const w=f.contentWindow,d=w.document;d.open();d.write(html);d.close();
+  setTimeout(()=>{w.focus();w.print()},350);setTimeout(()=>f.remove(),180000)
+}
+async function expX(kind){
+  const r=expData();if(!r)return;
+  if(kind==='pdf')pdfPrint(r.title,r.sheets.filter(s=>!s.noPdf));else await xlsxOut(r.file,r.sheets)
+}
 function render(){
   if(!me)return;
   if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei|q_|h)/.test(document.activeElement.id))return;
@@ -524,9 +605,10 @@ function render(){
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
   ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${gb().map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
   const cy=new Date().getFullYear(),ysel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>السنة</label><select onchange="yr=+this.value;yLoaded=0;loadY()">${[0,1,2,3,4].map(i=>cy-i).map(y=>`<option ${y===yr?'selected':''}>${y}</option>`).join('')}</select></div><div class="f"><label>&nbsp;</label><button onclick="yLoaded=0;loadY()">تحديث البيانات</button></div></div>`;
+  const expBar=(isAdmin?['tot','sum','day','ana','hc']:['hc']).includes(tab)?`<div class="row" style="margin-bottom:10px;justify-content:flex-end"><button class="sm" onclick="expX('xlsx')">⬇ Excel</button>${tab==='ana'?'':'<button class="sm" onclick="expX(\'pdf\')">⬇ PDF</button>'}</div>`:'';
   const body=tab==='hc'?hcView():tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='ana'?analysis():tab==='set'?settings():entry();
   $('#app').className='';
-  $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${tab==='hc'?'':tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
+  $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${expBar}${tab==='hc'?'':tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
 }
 </script>
 </body>
