@@ -62,14 +62,22 @@ const today=()=>{const d=new Date();return ym(d)+'-'+String(d.getDate()).padStar
 firebase.initializeApp(FIREBASE_CONFIG);
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 const auth=firebase.auth(),db=firebase.firestore();
+try{db.settings({experimentalAutoDetectLongPolling:true,merge:true})}catch(e){}
+const AP=firebase.auth.Auth.Persistence;
+auth.setPersistence(AP.LOCAL).catch(()=>auth.setPersistence(AP.SESSION)).catch(()=>auth.setPersistence(AP.NONE)).catch(()=>{});
+let authDone=false;
+function slow(){$('#app').className='';$('#app').innerHTML=`<div class="card login"><h2>التحميل واخد وقت طويل</h2><p class="mut" style="text-align:start">غالبًا السبب الشبكة أو المتصفح:</p><div class="kv"><span style="text-align:start">• افتح اللينك من Chrome أو Safari مباشرة، مش من جوه واتساب أو فيسبوك.</span></div><div class="kv"><span style="text-align:start">• غيّر الشبكة (واي فاي / بيانات الموبايل) واقفل أي VPN.</span></div><div class="kv"><span style="text-align:start">• اقفل الصفحة تمامًا وافتحها تاني.</span></div><div class="row" style="margin-top:12px;justify-content:center"><button class="p" onclick="location.reload()">إعادة المحاولة</button><button onclick="auth.signOut().finally(()=>location.reload())">تسجيل خروج</button></div></div>`}
+setTimeout(()=>{if(!authDone)slow()},10000);
 let me=null,isAdmin=false,cfg={branches:[],targets:{}},rows=[],users=[],month=ym(new Date()),tab='sum',fb='all',unsubs=[],unsubS,grp='ovio',yr=new Date().getFullYear(),yd=[],yLoaded=0,yLoad=false,cmpA=null,cmpB=null;
 const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/email-already-in-use':'الإيميل مستخدم قبل كده','auth/weak-password':'الباسورد ضعيف (6 أحرف على الأقل)','auth/too-many-requests':'محاولات كتير، جرّب بعد شوية'};
 const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 
 auth.onAuthStateChanged(async u=>{
+  authDone=true;
   unsubs.forEach(f=>f());unsubs=[];if(unsubS)unsubS();
   $('#out').style.display=u?'':'none';
   if(!u){me=null;login();return}
+  setTimeout(()=>{if(!me&&auth.currentUser)slow()},12000);
   try{
     const s=await db.doc('users/'+u.uid).get();
     if(!s.exists){$('#app').innerHTML='<div class="card">حسابك مش متفعّل. كلم الأدمن.</div>';return}
@@ -87,9 +95,13 @@ function login(){
   $('#app').innerHTML=`<div class="card login"><img src="logo.png" alt="Ovio"><h2>تسجيل الدخول</h2>
   <div class="f"><label>الإيميل</label><input id="le" type="email" autocomplete="username"></div>
   <div class="f" style="margin-top:8px"><label>الباسورد</label><input id="lp" type="password" autocomplete="current-password"></div>
-  <div class="row" style="margin-top:12px;justify-content:center"><button class="p" onclick="doLogin()">دخول</button><button class="sm" onclick="forgot()">نسيت الباسورد</button></div></div>`;
+  <div class="row" style="margin-top:12px;justify-content:center"><button class="p" id="lb" onclick="doLogin()">دخول</button><button class="sm" onclick="forgot()">نسيت الباسورد</button></div></div>`;
 }
-const doLogin=()=>auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err);
+function doLogin(){
+  const b=$('#lb');b.disabled=true;b.textContent='جاري الدخول…';
+  const t=setTimeout(()=>{b.disabled=false;b.textContent='دخول';alert('الدخول واخد وقت طويل. افتح اللينك من Chrome أو Safari مباشرة (مش من واتساب) أو غيّر الشبكة وجرّب تاني.')},15000);
+  auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err).finally(()=>{clearTimeout(t);b.disabled=false;b.textContent='دخول'})
+}
 const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد على الإيميل')).catch(err)};
 function sub(){if(unsubS)unsubS();unsubS=db.collection('sales').where('month','==',month).onSnapshot(s=>{rows=s.docs.map(d=>d.data());render()},e=>{$('#app').textContent='تعذر قراءة المبيعات'})}
 const saveCfg=()=>db.doc('config/main').set(cfg).catch(err);
