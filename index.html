@@ -113,6 +113,7 @@ const bName=id=>(cfg.branches.find(b=>b.id===id)||{name:'؟'}).name;
 const dim=()=>{const[y,m]=month.split('-').map(Number);return new Date(y,m,0).getDate()};
 const tgt=b=>{const t=cfg.targets[month]||{};return b==='all'?gb().reduce((a,x)=>a+(+t[x.id]||0),0):(+t[b]||0)};
 const CH=['dine','take','del','cat'],CL={dine:'Dine in',take:'Take away',del:'Delivery',cat:'Catering'};
+function cutDay(){const t=today(),cm=t.slice(0,7),D=dim();return month<cm?D:month>cm?0:Math.min(D,+t.slice(8))}
 function calc(b){
   const G=gset(),r=rows.filter(x=>b==='all'?G.has(x.branch):x.branch===b),D=dim(),T=tgt(b),by={};
   const ch={};CH.forEach(k=>ch[k]={s:0,n:0});
@@ -121,7 +122,8 @@ function calc(b){
   const days=Object.keys(by).map(Number),last=days.length?Math.max(...days):0;
   days.forEach(d=>{S+=by[d].s;I+=by[d].i});
   const avg=last?S/last:(S?S/D:0),proj=last?avg*D:S;
-  return{by,last,S,I,T,D,avg,proj,pct:T?S/T*100:NaN,pp:T?proj/T*100:NaN,ticket:I?S/I:0,ch}
+  const cut=cutDay(),Tc=T?T*cut/D:0;let Sc=S;days.forEach(d=>{if(d>cut)Sc-=by[d].s});
+  return{by,last,S,I,T,D,avg,proj,pct:T?S/T*100:NaN,pp:T?proj/T*100:NaN,ticket:I?S/I:0,ch,cut,Sc,Tc,def:Tc-Sc}
 }
 const cls=p=>!isFinite(p)?'':p>=100?'ok':p>=80?'warn':'bad';
 function card(name,c){
@@ -131,6 +133,7 @@ function card(name,c){
   <div class="kv"><span>التارجت الشهري</span><b>${c.T?N(c.T):'—'}</b></div>
   <div class="kv"><span>المحقق من التارجت</span><b class="${cls(c.pct)}">${P(c.pct)}</b></div>
   <div class="bar"><i style="width:${w}%"></i></div>
+  ${c.T&&c.cut?`<div class="kv"><span>تارجت لحد اليوم (${c.cut} يوم من ${c.D})</span><b>${N(c.Tc)}</b></div><div class="kv"><span>${c.def>0?'العجز عن التارجت لحد اليوم':'الزيادة عن التارجت لحد اليوم'}</span><b class="${c.def>0?'bad':'ok'}">${N(Math.abs(c.def))} <span class="mut">(${N(Math.abs(c.def)/c.Tc*100,1)}%)</span></b></div>`:''}
   <div class="kv"><span>عدد الفواتير</span><b>${N(c.I)}</b></div>
   <div class="kv"><span>متوسط الفاتورة</span><b>${N(c.ticket,1)}</b></div>
   ${CH.map(k=>`<div class="kv"><span>${CL[k]}</span><span>${N(c.ch[k].s)} <span class="mut">(${c.S?N(c.ch[k].s/c.S*100,1):0}%) · ${N(c.ch[k].n)} فاتورة</span></span></div>`).join('')}
@@ -182,13 +185,14 @@ function total(){
 }
 const summary=()=>`<div class="grid">${gb().map(b=>card(b.name,calc(b.id))).join('')||'<div class="card">أضف الفروع من الإعدادات</div>'}</div>`;
 function daily(b){
-  const c=calc(b),dt=c.T/c.D;let cs=0,ct=0,h='';
-  for(let d=1;d<=c.last;d++){
+  const c=calc(b),dt=c.T?c.T/c.D:0,up=Math.max(c.last,c.cut);let cs=0,ct=0,h='';
+  for(let d=1;d<=up;d++){
     const x=c.by[d]||{s:0,i:0};cs+=x.s;ct+=dt;
-    const df=x.s-dt,pp=dt?x.s/dt*100:NaN,cp=ct?cs/ct*100:NaN;
-    h+=`<tr><td>${d}</td><td>${N(x.s)}</td><td>${N(x.i)}</td><td>${N(x.i?x.s/x.i:0,1)}</td><td>${c.T?N(dt):'—'}</td><td class="${df>=0?'ok':'bad'}">${c.T?N(df):'—'}</td><td class="${cls(pp)}">${P(pp)}</td><td>${N(cs)}</td><td>${c.T?N(ct):'—'}</td><td class="${cls(cp)}">${P(cp)}</td></tr>`
+    const df=x.s-dt,pp=dt?x.s/dt*100:NaN,cp=ct?cs/ct*100:NaN,dd=ct-cs;
+    h+=`<tr><td>${d}</td><td>${N(x.s)}</td><td>${N(x.i)}</td><td>${N(x.i?x.s/x.i:0,1)}</td><td>${c.T?N(dt):'—'}</td><td class="${df>=0?'ok':'bad'}">${c.T?N(df):'—'}</td><td class="${cls(pp)}">${P(pp)}</td><td>${N(cs)}</td><td>${c.T?N(ct):'—'}</td><td class="${cls(cp)}">${P(cp)}</td><td class="${dd>0?'bad':'ok'}">${c.T?(dd>0?N(dd):'+'+N(-dd)):'—'}</td></tr>`
   }
-  return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="10">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dt*c.last):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dt?c.S/(dt*c.last)*100:NaN)}</td></tr></tfoot></table></div>`
+  const dT=dt*up,dd=dT-c.S;
+  return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th><th>عجز / (+زيادة) تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="11">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dT):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dT?c.S/dT*100:NaN)}</td><td class="${dd>0?'bad':'ok'}">${c.T?(dd>0?N(dd):'+'+N(-dd)):'—'}</td></tr></tfoot></table></div>`
 }
 function entry(){
   const bs=isAdmin?gb():cfg.branches.filter(b=>b.id===me.branch);
@@ -530,16 +534,16 @@ function hcView(){
 const nn=x=>isFinite(x)&&x!==''?Math.round(x*100)/100:'';
 const gRows=list=>{const G=gset();return list.filter(x=>G.has(x.branch))};
 function brSheet(){
-  const L=[['الفرع','المبيعات','التارجت','% المحقق','الفواتير','متوسط الفاتورة','متوسط المبيعات اليومي','المتوقع آخر الشهر','% المتوقع']];
-  const row=(n,c)=>[n,nn(c.S),c.T||'',nn(c.pct),c.I,nn(c.ticket),nn(c.avg),nn(c.proj),nn(c.pp)];
+  const L=[['الفرع','المبيعات','التارجت','% المحقق','الفواتير','متوسط الفاتورة','متوسط المبيعات اليومي','المتوقع آخر الشهر','% المتوقع','تارجت لحد اليوم','العجز لحد اليوم (سالب = زيادة)']];
+  const row=(n,c)=>[n,nn(c.S),c.T||'',nn(c.pct),c.I,nn(c.ticket),nn(c.avg),nn(c.proj),nn(c.pp),c.T&&c.cut?nn(c.Tc):'',c.T&&c.cut?nn(c.def):''];
   gb().forEach(b=>L.push(row(b.name,calc(b.id))));L.push(row('الإجمالي',calc('all')));
   return{name:'الفروع',rows:L}
 }
 function dailySheet(b){
-  const c=calc(b),dt=c.T?c.T/c.D:0,L=[['التاريخ','المبيعات','الفواتير','متوسط الفاتورة','تارجت اليوم','الفرق','% اليوم','تراكمي','تارجت تراكمي','% تراكمي']];
+  const c=calc(b),dt=c.T?c.T/c.D:0,up=Math.max(c.last,c.cut),L=[['التاريخ','المبيعات','الفواتير','متوسط الفاتورة','تارجت اليوم','الفرق','% اليوم','تراكمي','تارجت تراكمي','% تراكمي','العجز التراكمي (سالب = زيادة)']];
   let cs=0,ct=0;
-  for(let d=1;d<=c.last;d++){const x=c.by[d]||{s:0,i:0};cs+=x.s;ct+=dt;L.push([month+'-'+pad2(d),nn(x.s),x.i,x.i?nn(x.s/x.i):0,dt?nn(dt):'',dt?nn(x.s-dt):'',dt?nn(x.s/dt*100):'',nn(cs),dt?nn(ct):'',ct?nn(cs/ct*100):''])}
-  L.push(['الإجمالي',nn(c.S),c.I,nn(c.ticket),'','','',nn(c.S),'','']);
+  for(let d=1;d<=up;d++){const x=c.by[d]||{s:0,i:0};cs+=x.s;ct+=dt;L.push([month+'-'+pad2(d),nn(x.s),x.i,x.i?nn(x.s/x.i):0,dt?nn(dt):'',dt?nn(x.s-dt):'',dt?nn(x.s/dt*100):'',nn(cs),dt?nn(ct):'',ct?nn(cs/ct*100):'',dt?nn(ct-cs):''])}
+  L.push(['الإجمالي',nn(c.S),c.I,nn(c.ticket),'','','',nn(c.S),dt?nn(dt*up):'',dt&&up?nn(c.S/(dt*up)*100):'',dt?nn(dt*up-c.S):'']);
   return{name:'يوم بيوم',rows:L}
 }
 function chSheet(){
