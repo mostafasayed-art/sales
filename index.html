@@ -284,6 +284,21 @@ function chartGrouped(labels,series,tl){
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${b}${t}${xl}</svg></div>`
 }
 const lg=a=>`<div class="lg">${a.map(([c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join('')}</div>`;
+const dimOf=(y,m)=>new Date(y,m,0).getDate();
+function ydef(ids,cur,yy){
+  const set=new Set(ids),now=new Date(),cy=now.getFullYear(),cm=now.getMonth()+1,tdy=today(),out={T:0,S:0,gross:0,def:0,n:0,late:0,months:{}};
+  for(let m=1;m<=12;m++){
+    const f=yy<cy||(yy===cy&&m<cm)?1:(yy===cy&&m===cm?Math.min(dimOf(yy,m),now.getDate())/dimOf(yy,m):0);
+    if(!f)continue;
+    const key=yy+'-'+pad2(m),t=cfg.targets[key]||{};let tg=0;ids.forEach(id=>tg+=+t[id]||0);
+    if(!tg)continue;
+    const sales=cur.filter(x=>set.has(x.branch)&&x.date.slice(0,7)===key&&x.date<=tdy).reduce((a,x)=>a+x.sales,0);
+    const tc=tg*f,d=tc-sales;out.T+=tc;out.S+=sales;out.n++;if(d>0){out.gross+=d;out.late++}out.months[m]={tc,tg,sales,d,part:f<1};
+  }
+  out.def=out.T-out.S;return out
+}
+const dfc=y=>y.n?`<span class="${y.def>0?'bad':'ok'}">${y.def>0?N(y.def):'+'+N(-y.def)}</span>`:'—';
+const ydc=x=>x?`<td class="${x.d>0?'bad':'ok'}">${x.d>0?N(x.d):'+'+N(-x.d)}${x.part?'<br><span class="mut">(لحد اليوم)</span>':''}</td>`:'<td>—</td>';
 function analysis(){
   if(yLoad)return '<div class="card">جاري تحميل بيانات السنة…</div>';
   const G=gset(),all=yd.filter(x=>G.has(x.branch)),cur=all.filter(x=>x.date.slice(0,4)===String(yr)),prev=all.filter(x=>x.date.slice(0,4)===String(yr-1));
@@ -291,6 +306,7 @@ function analysis(){
   const now=new Date(),curY=now.getFullYear(),curM=now.getMonth()+1;
   const mo=[],mp=[],tg=[];
   for(let m=1;m<=12;m++){mo.push(agg(cur.filter(x=>x.date.slice(0,7)===mkk(yr,m))));mp.push(agg(prev.filter(x=>x.date.slice(0,7)===mkk(yr-1,m))));tg.push(tgtM(mkk(yr,m)))}
+  const Y=ydef(gb().map(b=>b.id),cur,yr);
   const cut=cur.reduce((a,x)=>x.date>a?x.date:a,'');
   const pcut=cut?prev.filter(x=>x.date.slice(5)<=cut.slice(5)):prev;
   const yc=agg(cur),yp=agg(pcut);
@@ -298,16 +314,16 @@ function analysis(){
   let rowsH='',tS=0,tT=0,tI=0,tP=0;
   for(let m=1;m<=12;m++){const o=mo[m-1],p=mp[m-1];if(!(o.S||p.S||tg[m-1]))continue;
     const pm=m>1&&mo[m-2].S?chg(o.S,mo[m-2].S):NaN,tp=tg[m-1]?o.S/tg[m-1]*100:NaN;tS+=o.S;tT+=tg[m-1];tI+=o.I;tP+=p.S;
-    rowsH+=`<tr><td>${MN[m-1]}</td><td>${N(o.S)}</td><td>${tg[m-1]?N(tg[m-1]):'—'}</td><td class="${cls(tp)}">${P(tp)}</td><td>${N(o.I)}</td><td>${N(o.t,1)}</td><td>${p.S?N(p.S):'—'}</td><td>${chs(chg(o.S,p.S))}</td><td>${chs(pm)}</td></tr>`}
-  const monthly=`<div class="card sc"><h2>المقارنة الشهرية ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الشهر</th><th>المبيعات</th><th>التارجت</th><th>% التارجت</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>نفس الشهر ${yr-1}</th><th>نمو سنوي</th><th>عن الشهر السابق</th></tr></thead><tbody>${rowsH}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(tS)}</td><td>${tT?N(tT):'—'}</td><td>${tT?P(tS/tT*100):'—'}</td><td>${N(tI)}</td><td>${tI?N(tS/tI,1):'—'}</td><td>${N(tP)}</td><td>${chs(chg(tS,tP))}</td><td></td></tr></tfoot></table><p class="mut">الشهر الحالي لسه ما اكتملش، فنموه بيظهر أقل من الحقيقي.</p></div>`;
+    rowsH+=`<tr><td>${MN[m-1]}</td><td>${N(o.S)}</td><td>${tg[m-1]?N(tg[m-1]):'—'}</td><td class="${cls(tp)}">${P(tp)}</td>${ydc(Y.months[m])}<td>${N(o.I)}</td><td>${N(o.t,1)}</td><td>${p.S?N(p.S):'—'}</td><td>${chs(chg(o.S,p.S))}</td><td>${chs(pm)}</td></tr>`}
+  const monthly=`<div class="card sc"><h2>المقارنة الشهرية ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الشهر</th><th>المبيعات</th><th>التارجت</th><th>% التارجت</th><th>عجز / (+زيادة) عن التارجت</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>نفس الشهر ${yr-1}</th><th>نمو سنوي</th><th>عن الشهر السابق</th></tr></thead><tbody>${rowsH}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(tS)}</td><td>${tT?N(tT):'—'}</td><td>${tT?P(tS/tT*100):'—'}</td><td class="${Y.def>0?'bad':'ok'}">${Y.n?(Y.def>0?N(Y.def):'+'+N(-Y.def)):'—'}</td><td>${N(tI)}</td><td>${tI?N(tS/tI,1):'—'}</td><td>${N(tP)}</td><td>${chs(chg(tS,tP))}</td><td></td></tr></tfoot></table><p class="mut">الشهر الحالي لسه ما اكتملش، فنموه بيظهر أقل من الحقيقي.</p></div>`;
   const labels=MN.map((_,i)=>String(i+1));
   const mchart=`<div class="card"><h2>المبيعات الشهرية</h2>${chartGrouped(labels,[{c:'#4d7a9c',v:mp.map(o=>o.S)},{c:'#7fb4d9',v:mo.map(o=>o.S)}],tg)}${lg([['#4d7a9c',yr-1],['#7fb4d9',yr],['#f2c46d','التارجت']])}<p class="mut">الأرقام تحت الأعمدة هي رقم الشهر.</p></div>`;
   // yearly KPIs
   const kv=(l,a,b,d=0)=>`<div class="kv"><span>${l}</span><span><b>${N(a,d)}</b> <span class="mut">مقابل ${b?N(b,d):'—'}</span> ${chs(chg(a,b))}</span></div>`;
   const kp=`<div class="card"><h2>المقارنة السنوية${cut?` (حتى ${cut.slice(8)}/${cut.slice(5,7)})`:''}</h2><p class="mut">${yr} مقابل نفس الفترة من ${yr-1}</p>${kv('المبيعات',yc.S,yp.S)}${kv('عدد الفواتير',yc.I,yp.I)}${kv('متوسط الفاتورة',yc.t,yp.t,1)}${kv('أيام التشغيل',yc.days,yp.days)}${kv('متوسط المبيعات اليومي',yc.avg,yp.avg)}</div>`;
   // branches
-  const br=gb().map(b=>({n:b.name,a:agg(cur.filter(x=>x.branch===b.id)),p:agg(pcut.filter(x=>x.branch===b.id))})).sort((a,b)=>b.a.S-a.a.S);
-  const bt=`<div class="card sc"><h2>الفروع: ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الفرع</th><th>المبيعات</th><th>النسبة</th><th>نفس الفترة ${yr-1}</th><th>النمو</th><th>متوسط الفاتورة</th></tr></thead><tbody>${br.map(r=>`<tr><td>${r.n}</td><td>${N(r.a.S)}</td><td>${yc.S?N(r.a.S/yc.S*100,1)+'%':'—'}</td><td>${r.p.S?N(r.p.S):'—'}</td><td>${chs(chg(r.a.S,r.p.S))}</td><td>${N(r.a.t,1)}</td></tr>`).join('')}</tbody></table></div>`;
+  const br=gb().map(b=>({n:b.name,id:b.id,a:agg(cur.filter(x=>x.branch===b.id)),p:agg(pcut.filter(x=>x.branch===b.id))})).sort((a,b)=>b.a.S-a.a.S);
+  const bt=`<div class="card sc"><h2>الفروع: ${yr} مقابل ${yr-1}</h2><table><thead><tr><th>الفرع</th><th>المبيعات</th><th>النسبة</th><th>نفس الفترة ${yr-1}</th><th>النمو</th><th>متوسط الفاتورة</th><th>عجز التارجت لحد تاريخه</th></tr></thead><tbody>${br.map(r=>`<tr><td>${r.n}</td><td>${N(r.a.S)}</td><td>${yc.S?N(r.a.S/yc.S*100,1)+'%':'—'}</td><td>${r.p.S?N(r.p.S):'—'}</td><td>${chs(chg(r.a.S,r.p.S))}</td><td>${N(r.a.t,1)}</td><td>${dfc(ydef([r.id],cur,yr))}</td></tr>`).join('')}</tbody></table></div>`;
   // weekday + top days
   const base=(cur.length?cur:prev).filter(x=>!x.monthly),ds={};base.forEach(x=>ds[x.date]=(ds[x.date]||0)+x.sales);
   const wsum=Array(7).fill(0),wn=Array(7).fill(0);Object.keys(ds).forEach(d=>{const w=new Date(d+'T12:00:00').getDay();wsum[w]+=ds[d];wn[w]++});
@@ -329,7 +345,8 @@ function analysis(){
   const mr=[['المبيعات',A.S,B.S,0],['عدد الفواتير',A.I,B.I,0],['متوسط الفاتورة',A.t,B.t,1],['أيام التشغيل',A.days,B.days,0],['متوسط المبيعات اليومي',A.avg,B.avg,0],...CH.map(k=>[CL[k],A.ch[k].s,B.ch[k].s,0])];
   const mvm=`<div class="card sc"><h2>مقارنة شهر بشهر</h2><div class="row" style="margin-bottom:8px"><div class="f"><label>الشهر الأول</label><select onchange="cmpA=this.value;render()">${opt(cmpA)}</select></div><div class="f"><label>الشهر التاني</label><select onchange="cmpB=this.value;render()">${opt(cmpB)}</select></div></div><table><thead><tr><th>المقياس</th><th>${ml(cmpA)}</th><th>${ml(cmpB)}</th><th>الفرق</th><th>%</th></tr></thead><tbody>${mr.map(([l,a,b,d])=>`<tr><td>${l}</td><td>${N(a,d)}</td><td>${N(b,d)}</td><td class="${a-b>=0?'ok':'bad'}">${a-b>=0?'+':''}${N(a-b,d)}</td><td>${chs(chg(a,b))}</td></tr>`).join('')}</tbody></table></div>`;
   // insights
-  const ins=[];
+  const ins=[],pd=Y.T?Y.def/Y.T*100:NaN;
+  if(Y.n)ins.push(`إجمالي ${Y.def>0?'العجز':'الزيادة'} عن التارجت ${yr<curY?'في '+yr+' (السنة كلها)':'من أول '+yr+' لحد النهارده'}: ${N(Math.abs(Y.def))} (${N(Math.abs(pd),1)}% من التارجت).`);
   const bm=mo.map((o,i)=>[o.S,i]).filter(a=>a[0]>0).sort((a,b)=>b[0]-a[0]);
   if(bm.length>1)ins.push(`أعلى شهر في ${yr}: ${MN[bm[0][1]]} (${N(bm[0][0])})، وأقل شهر: ${MN[bm[bm.length-1][1]]} (${N(bm[bm.length-1][0])}).`);
   const g=chg(yc.S,yp.S);if(isFinite(g))ins.push(`مبيعات ${yr} ${g>=0?'أعلى':'أقل'} من نفس الفترة في ${yr-1} بنسبة ${N(Math.abs(g),1)}%.`);
@@ -342,8 +359,14 @@ function analysis(){
   if(bg.length>1)ins.push(`أفضل نمو بين الفروع: ${bg[0][1]} (${bg[0][0]>=0?'+':''}${N(bg[0][0],1)}%)، وأضعفها: ${bg[bg.length-1][1]} (${bg[bg.length-1][0]>=0?'+':''}${N(bg[bg.length-1][0],1)}%).`);
   const wt=[];for(let m=1;m<=12;m++)if(tg[m-1]&&mo[m-1].S&&(yr<curY||m<curM))wt.push(mo[m-1].S>=tg[m-1]);
   if(wt.length)ins.push(`تم تحقيق التارجت الشهري في ${wt.filter(Boolean).length} من ${wt.length} شهر مكتمل.`);
+  const dcard=Y.n?`<div class="card"><h2>عجز التارجت ${yr<curY?'في '+yr+' (السنة كلها)':'من أول '+yr+' لحد تاريخه'}</h2><p class="mut">بيتحسب للشهور اللي ليها تارجت متحدد، والشهر الحالي لحد النهارده بس.</p>
+  <div class="kv"><span>التارجت لحد تاريخه</span><b>${N(Y.T)}</b></div>
+  <div class="kv"><span>المبيعات الفعلية لنفس الشهور</span><b>${N(Y.S)}</b></div>
+  <div class="kv"><span>${Y.def>0?'إجمالي العجز (صافي)':'إجمالي الزيادة (صافي)'}</span><b class="${Y.def>0?'bad':'ok'}">${N(Math.abs(Y.def))} <span class="mut">(${N(Math.abs(pd),1)}%)</span></b></div>
+  <div class="kv"><span>مجموع عجز الشهور المتأخرة فقط</span><b class="bad">${N(Y.gross)}</b></div>
+  <div class="kv"><span>شهور متأخرة عن التارجت</span><b>${Y.late} من ${Y.n}</b></div></div>`:`<div class="card"><h2>عجز التارجت ${yr}</h2><span class="mut">مفيش تارجت متحدد لشهور ${yr} لحد دلوقتي. حط التارجت من الإعدادات (اختار الشهر الأول).</span></div>`;
   const insH=`<div class="card"><h2>ملخص التحليل</h2>${ins.map(t=>`<div class="kv"><span>• ${t}</span></div>`).join('')||'<span class="mut">محتاج بيانات أكتر للتحليل.</span>'}</div>`;
-  return `<h2 style="margin:4px 0 10px">تحليل ${GN[grp]}</h2>${insH}${kp}${mchart}${monthly}${mvm}<div class="grid">${bt}${chT||''}</div><div class="grid">${wchart}${tchart}</div>${topH}`
+  return `<h2 style="margin:4px 0 10px">تحليل ${GN[grp]}</h2>${insH}${dcard}${kp}${mchart}${monthly}${mvm}<div class="grid">${bt}${chT||''}</div><div class="grid">${wchart}${tchart}</div>${topH}`
 }
 
 let imp=null,imode='d',iauto=true,impA=null;
@@ -584,7 +607,15 @@ function expData(){
   const g=GN[grp];
   if(tab==='tot'||tab==='sum')return{title:`مبيعات ${g} — ${month}`,file:`sales-${grp}-${month}`,sheets:[brSheet(),dailySheet('all'),chSheet()]};
   if(tab==='day'){const n=fb==='all'?g:bName(fb);return{title:`مبيعات ${n} — ${month}`,file:`sales-${n}-${month}`,sheets:[dailySheet(fb),rawSheet(rows.filter(x=>fb==='all'?gset().has(x.branch):x.branch===fb))]}}
-  if(tab==='ana'){if(yLoad||yLoaded!==yr||!yd.length){alert('استنى لحد ما بيانات السنة تتحمّل');return null}return{title:`بيانات المبيعات ${g} — ${yr-1} و${yr}`,file:`sales-raw-${grp}-${yr-1}-${yr}`,sheets:[rawSheet(gRows(yd))]}}
+  if(tab==='ana'){if(yLoad||yLoaded!==yr||!yd.length){alert('استنى لحد ما بيانات السنة تتحمّل');return null}
+    const cur=gRows(yd).filter(x=>x.date.slice(0,4)===String(yr)),Y=ydef(gb().map(b=>b.id),cur,yr),pc=(d,t)=>t?nn(d/t*100):'';
+    const ms=[['الشهر','التارجت (محسوب)','المبيعات','العجز (سالب = زيادة)','% العجز من التارجت']];
+    Object.keys(Y.months).forEach(m=>{const x=Y.months[m];ms.push([MN[m-1]+(x.part?' (لحد اليوم)':''),nn(x.tc),nn(x.sales),nn(x.d),pc(x.d,x.tc)])});
+    ms.push(['الإجمالي',nn(Y.T),nn(Y.S),nn(Y.def),pc(Y.def,Y.T)]);
+    const bs=[['الفرع','التارجت لحد تاريخه','المبيعات','العجز (سالب = زيادة)','% العجز من التارجت']];
+    gb().forEach(b=>{const y=ydef([b.id],cur,yr);if(y.n)bs.push([b.name,nn(y.T),nn(y.S),nn(y.def),pc(y.def,y.T)])});
+    bs.push(['الإجمالي',nn(Y.T),nn(Y.S),nn(Y.def),pc(Y.def,Y.T)]);
+    return{title:`عجز التارجت ومقارنات ${g} — ${yr}`,file:`target-gap-${grp}-${yr}`,sheets:[{name:'عجز التارجت الشهري',rows:ms},{name:'عجز التارجت بالفرع',rows:bs},rawSheet(gRows(yd))]}}
   if(tab==='hc')return hcExp();
   return null
 }
@@ -621,7 +652,7 @@ function render(){
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
   ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${gb().map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
   const cy=new Date().getFullYear(),ysel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>السنة</label><select onchange="yr=+this.value;yLoaded=0;loadY()">${[0,1,2,3,4].map(i=>cy-i).map(y=>`<option ${y===yr?'selected':''}>${y}</option>`).join('')}</select></div><div class="f"><label>&nbsp;</label><button onclick="yLoaded=0;loadY()">تحديث البيانات</button></div></div>`;
-  const expBar=(isAdmin?['tot','sum','day','ana','hc']:['hc']).includes(tab)?`<div class="row" style="margin-bottom:10px;justify-content:flex-end"><button class="sm" onclick="expX('xlsx')">⬇ Excel</button>${tab==='ana'?'':'<button class="sm" onclick="expX(\'pdf\')">⬇ PDF</button>'}</div>`:'';
+  const expBar=(isAdmin?['tot','sum','day','ana','hc']:['hc']).includes(tab)?`<div class="row" style="margin-bottom:10px;justify-content:flex-end"><button class="sm" onclick="expX('xlsx')">⬇ Excel</button>${false?'':'<button class="sm" onclick="expX(\'pdf\')">⬇ PDF</button>'}</div>`:'';
   const body=tab==='hc'?hcView():tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='ana'?analysis():tab==='set'?settings():entry();
   $('#app').className='';
   $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${expBar}${tab==='hc'?'':tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
