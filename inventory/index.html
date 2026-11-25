@@ -22,13 +22,14 @@ body{margin:0;background:var(--bg);color:var(--tx);font-family:Cairo,system-ui,s
 .top #role{color:#9fb6c9;font-size:12px}
 .top button{width:auto;padding:4px 12px;font-size:13px;background:transparent;color:#e8eef4;border:1px solid #3a5873}
 #app{max-width:1100px;margin:0 auto;padding:12px}
-.gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px}.gr .card{margin:0}.gr .m{grid-column:1/-1}
-h1{font-size:19px;margin:4px 0 10px}h2{font-size:16px;margin:0 0 8px}
+h2{font-size:16px;margin:0 0 8px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px}.gr .card{margin:0}.gr .m{grid-column:1/-1}
 .row{display:flex;gap:8px;align-items:center}.row .n{flex:1;min-width:0}.row .n b{display:block;overflow-wrap:anywhere;font-weight:600}
 .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.bar>*{flex:1;min-width:120px}
 button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:9px 10px;width:100%}
 button{cursor:pointer;background:var(--pri);color:var(--on);border:0;font-weight:600}button.s{background:var(--card);color:var(--tx);border:1px solid var(--bd)}button.x{background:none;color:var(--bad);width:auto;padding:4px 8px}
+.btn{display:block;text-align:center;padding:9px;border:1px solid var(--bd);border-radius:10px;cursor:pointer;margin-top:6px}
 .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px}.tabs button{width:auto;white-space:nowrap;background:var(--card);color:var(--tx);border:1px solid var(--bd)}.tabs button.on{background:var(--pri);color:var(--on);border-color:var(--pri)}
 .cats{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px}.cats button{width:auto;white-space:nowrap;padding:6px 12px;background:var(--card);color:var(--tx);border:1px solid var(--bd);font-weight:500}.cats button.on{background:var(--ac2);color:var(--pri);border-color:var(--pri)}
 .mut,small{color:var(--mut);font-size:12px}
@@ -37,10 +38,12 @@ button{cursor:pointer;background:var(--pri);color:var(--on);border:0;font-weight
 .pg{height:6px;background:var(--bd);border-radius:6px;overflow:hidden;margin:4px 0 10px}.pg i{display:block;height:100%;background:var(--pri)}
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.sum div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px;text-align:center}.sum b{display:block;font-size:20px}
 .neg{color:var(--bad)}.pos{color:var(--ok)}.tw{overflow-x:auto}
-table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}th,td{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:center}th{color:var(--mut);font-size:12px}td:first-child,th:first-child{text-align:right;min-width:150px}tr.bad td{background:var(--bad2)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}th,td{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:center}th{color:var(--mut);font-size:12px}td:first-child,th:first-child{text-align:right;min-width:150px}tr.bad td{background:var(--bad2)}
 .m{padding:30px 10px;text-align:center;color:var(--mut)}
 .zm{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;z-index:9}.zm img{max-width:94%;max-height:90%;border-radius:10px}
-.up{color:var(--pri);font-size:12px;cursor:pointer}
+.up{color:var(--pri);font-size:12px;cursor:pointer;display:inline-block;margin-inline-end:10px}
+.bd2{display:inline-block;padding:1px 9px;border-radius:10px;font-size:12px;background:var(--ac2)}.bd2.ok{color:var(--ok)}.bd2.no{color:var(--bad)}
+.ev{display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--bd);font-size:14px}.ev:last-child{border:0}.ev time{color:var(--mut);font-size:12px;min-width:92px}
 .st{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--pri);color:var(--on);padding:6px 14px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}.st.on{opacity:1}
 .hid{position:fixed;top:0;right:0;width:1px;height:1px;opacity:0;overflow:hidden}
 </style>
@@ -50,6 +53,7 @@ table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}th,td{p
 <main id="app" class="m">جاري التحميل…</main>
 <input type="file" id="fi" accept="image/*" class="hid">
 <input type="file" id="fs" accept=".json" class="hid">
+<input type="file" id="fx" accept=".xlsx,.xls" class="hid">
 <div class="st" id="st">اتحفظ ✓</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -66,14 +70,18 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 db.enablePersistence().catch(()=>{});
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-let lim=40,rt,me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,unsubs=[],timer=null;
-const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية'};
+let lim=40,rt,me=null,users=[],isAdmin=false,branches=[],items=[],imgs={},uimgs={},counts={},exps=[],tab='count',branch='',month=ym(new Date()),cat='',qs='',onlyDiff=false,etype='ex',eto='',unsubs=[],timer=null,upId='';
+const AR={'auth/invalid-credential':'الإيميل أو الباسورد غلط','auth/wrong-password':'الباسورد غلط','auth/user-not-found':'الحساب غير موجود','auth/too-many-requests':'محاولات كتير، استنى شوية','auth/email-already-in-use':'الإيميل ده مستخدم'};
 const err=e=>alert(AR[e.code]||('حصل خطأ: '+(e.message||e)));
 const flash=()=>{const e=$('#st');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1200)};
 const bname=id=>(branches.find(b=>b.id===id)||{}).name||id;
+const iname=id=>(items.find(i=>i.id===id)||{}).name||id;
+const uname=id=>(users.find(u=>u.id===id)||{}).name||'';
 const cats=()=>[...new Set(items.map(i=>i.cat))];
-let uimgs={};const src=i=>uimgs[i.id]||imgs[i.id]||'';
+const src=i=>uimgs[i.id]||imgs[i.id]||'';
+const fmt=t=>t?new Date(t).toLocaleString('ar-EG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
 const loadImgs=()=>fetch('images.json').then(r=>r.json()).then(j=>{imgs=j;render()}).catch(()=>{});
+const loadX=()=>window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=()=>no(new Error('تعذر تحميل مكتبة Excel، اتأكد من النت'));document.head.appendChild(s)});
 
 auth.onAuthStateChanged(async u=>{
  unsubs.forEach(f=>f());unsubs=[];
@@ -85,156 +93,289 @@ auth.onAuthStateChanged(async u=>{
   me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab='count';
   $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
   if(!isAdmin){branch=me.branch||'';if(!branch){$('#app').innerHTML='<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>';return}}
-  const bad=e=>{$('#app').innerHTML='<div class="card">تعذر التحميل: '+esc(e.message)+'<br><span class="mut">اتأكد إن قواعد Firestore اتحدّثت.</span></div>'};
-  unsubs.push(db.doc('config/main').onSnapshot(d=>{branches=(d.data()||{}).branches||[];if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad));
-  unsubs.push(db.doc('inv_cfg/items').onSnapshot(d=>{items=(d.data()||{}).list||[];render()},bad));
+  const bad=n=>e=>{$('#app').innerHTML='<div class="card">تعذر التحميل ('+n+'): '+esc(e.message)+'<br><span class="mut">الحساب: '+esc(me.email||'')+' — '+(isAdmin?'أدمن':'يوزر فرع: '+esc(me.branch))+'</span></div>'};
+  unsubs.push(db.doc('config/main').onSnapshot(d=>{branches=(d.data()||{}).branches||[];if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad('config')));
+  unsubs.push(db.doc('inv_cfg/items').onSnapshot(d=>{items=(d.data()||{}).list||[];render()},bad('inv_cfg')));
   unsubs.push(db.doc('inv_imgs/u').onSnapshot(d=>{uimgs=d.data()||{};render()},()=>{}));
   loadImgs();
   const cq=isAdmin?db.collection('inv_counts'):db.collection('inv_counts').where('b','==',me.branch);
-  unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad));
-  if(isAdmin){unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad));unsubs.push(db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad))}
+  unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad('inv_counts')));
+  if(isAdmin){
+   unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad('inv_exp')));
+   unsubs.push(db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad('users')));
+  }
  }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
 });
 function login(){
- $('#role').textContent='';
- $('#app').className='';
+ $('#role').textContent='';$('#app').className='';
  $('#app').innerHTML='<div class="card" style="max-width:420px;margin:30px auto"><h2>تسجيل الدخول</h2><div style="margin-bottom:8px"><small>الإيميل</small><input id="le" type="email" autocomplete="username"></div><div><small>الباسورد</small><input id="lp" type="password" autocomplete="current-password"></div><div class="bar" style="margin:10px 0 0"><button onclick="doLogin()">دخول</button><button class="s" onclick="forgot()">نسيت الباسورد</button></div></div>';
 }
 const doLogin=()=>auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err);
 const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد')).catch(err)};
 
+const TABS=[['count','الجرد'],['rep','التقرير'],['log','السجل'],['exp','صرف / تحويل'],['set','الإعدادات']];
 function head(){
- const rep=tab==='rep';
- let h='<div class="bar"><input type="month" id="mo" value="'+month+'">'+(isAdmin?'<select id="br">'+(rep?'<option value="*"'+(branch==='*'?' selected':'')+'>كل الفروع</option>':'')+branches.map(b=>'<option value="'+b.id+'"'+(b.id===branch?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>':'<div class="card" style="margin:0;text-align:center">'+esc(bname(branch))+'</div>')+'</div>';
- if(isAdmin)h='<div class="tabs">'+[['count','الجرد'],['rep','التقرير'],['exp','الصرف'],['set','الإعدادات']].map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-t="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'+h;
+ const wide=tab==='rep'||tab==='log';let h='';
+ if(tab!=='set')h='<div class="bar"><input type="month" id="mo" value="'+month+'">'+(isAdmin?'<select id="br">'+(wide?'<option value="*"'+(branch==='*'?' selected':'')+'>كل الفروع</option>':'')+branches.map(b=>'<option value="'+b.id+'"'+(b.id===branch?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>':'<div class="card" style="margin:0;text-align:center">'+esc(bname(branch))+'</div>')+'</div>';
+ if(isAdmin)h='<div class="tabs">'+TABS.map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-t="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'+h;
  return h;
 }
 function render(){clearTimeout(rt);rt=setTimeout(draw,30)}
 function draw(){
  if(!me)return;
  const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik','un','ue','up'].includes(a.id)))return;
- if(tab!=='rep'&&branch==='*')branch=(branches[0]||{}).id||'';
+ if(tab!=='rep'&&tab!=='log'&&branch==='*')branch=(branches[0]||{}).id||'';
  let h=head();
- if(!items.length&&!(isAdmin&&tab==='set'))h+='<div class="m">'+(isAdmin?'لسه ما فيش أصناف. روح للإعدادات واستورد ملف الأصناف.':'الأصناف لسه ما اتجهزتش، كلم الأدمن.')+'</div>';
- else if(tab==='count')h+=vCount();else if(tab==='rep'&&isAdmin)h+=vRep();else if(tab==='exp'&&isAdmin)h+=vExp();else if(tab==='set'&&isAdmin)h+=vSet();
+ if(tab==='set'&&isAdmin)h+=vSet();
+ else if(!items.length)h+='<div class="m">'+(isAdmin?'لسه ما فيش أصناف. روح للإعدادات واستورد ملف Excel.':'الأصناف لسه ما اتجهزتش، كلم الأدمن.')+'</div>';
+ else if(tab==='count')h+=vCount();
+ else if(tab==='rep'&&isAdmin)h+=vRep();
+ else if(tab==='log'&&isAdmin)h+=vLog();
+ else if(tab==='exp'&&isAdmin)h+=vExp();
  $('#app').className='';$('#app').innerHTML=h;wire();
 }
 function wire(){
+ const f=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
  const mo=$('#mo');if(mo)mo.onchange=()=>{month=mo.value||month;render()};
  const br=$('#br');if(br)br.onchange=()=>{branch=br.value;render()};
  document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cat=b.dataset.c;lim=40;render()});
- const q=$('#qs');if(q)q.oninput=()=>{qs=q.value;lim=40;const p=q.selectionStart;render();const n=$('#qs');n.focus();n.setSelectionRange(p,p)};
+ const q=$('#qs');if(q)q.oninput=()=>{qs=q.value;lim=40;const p=q.selectionStart;render();setTimeout(()=>{const n=$('#qs');if(n){n.focus();n.setSelectionRange(p,p)}},60)};
  document.querySelectorAll('.q').forEach(i=>{i.oninput=()=>setQ(i.dataset.i,i.value);i.onblur=()=>setTimeout(render,50)});
- document.querySelectorAll('[data-z]').forEach(e=>e.onclick=()=>{const z=document.createElement('div');z.className='zm';z.innerHTML='<img src="'+imgs[e.dataset.z]+'">';z.onclick=()=>z.remove();document.body.appendChild(z)});
+ document.querySelectorAll('[data-z]').forEach(e=>e.onclick=()=>{const z=document.createElement('div');z.className='zm';z.innerHTML='<img src="'+src({id:e.dataset.z})+'">';z.onclick=()=>z.remove();document.body.appendChild(z)});
  document.querySelectorAll('[data-up]').forEach(e=>e.onclick=()=>{upId=e.dataset.up});
- document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>db.doc('inv_exp/'+b.dataset.d).delete().catch(err));
- const f=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
- f('#addExp',addExp);f('#addIt',addIt);f('#csv',csv);f('#addU',addU);f('#more',()=>{lim+=40;render()});
+ document.querySelectorAll('[data-ed]').forEach(e=>e.onclick=()=>editItem(e.dataset.ed));
+ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{if(confirm('تحذف الحركة دي؟'))db.doc('inv_exp/'+b.dataset.d).delete().catch(err)});
+ f('#more',()=>{lim+=40;render()});f('#sub',submit);f('#xlc',exportCount);f('#xlr',exportRep);f('#xll',exportLog);
+ f('#addExp',addExp);f('#addIt',addIt);f('#addU',addU);
+ const od=$('#od');if(od)od.onchange=()=>{onlyDiff=od.checked;render()};
+ const et=$('#etype');if(et)et.onchange=()=>{etype=et.value;render()};
+ const eo=$('#eto');if(eo)eo.onchange=()=>{eto=eo.value};
  document.querySelectorAll('[data-ub]').forEach(x=>x.onchange=()=>db.doc('users/'+x.dataset.ub).update({branch:x.value}).then(flash).catch(err));
  document.querySelectorAll('[data-ur]').forEach(x=>x.onclick=()=>auth.sendPasswordResetEmail(x.dataset.ur).then(()=>alert('اتبعت لينك تغيير الباسورد')).catch(err));
  document.querySelectorAll('[data-ud]').forEach(x=>x.onclick=()=>{if(confirm('إيقاف الحساب؟'))db.doc('users/'+x.dataset.ud).delete().catch(err)});
- const od=$('#od');if(od)od.onchange=()=>{onlyDiff=od.checked;render()};
 }
 
-/* الجرد */
+/* ===== الجرد ===== */
 function setQ(id,v){
- const k=key(month,branch),d=counts[k]||{m:month,b:branch,q:{}},q={...(d.q||{})};
+ const k=key(month,branch),d=counts[k]||{},q={...(d.q||{})};
  if(v==='')delete q[id];else q[id]=Math.max(0,Number(v)||0);
- counts[k]={...d,q};clearTimeout(timer);
- timer=setTimeout(()=>db.doc('inv_counts/'+k).set({m:month,b:branch,q,by:me.uid,t:Date.now()}).then(flash).catch(err),700);
- const n=Object.keys(q).length;$('#pg').style.width=(100*n/items.length)+'%';$('#pt').textContent=n+' / '+items.length;
+ const n=Object.keys(q).length,now=Date.now(),doc={m:month,b:branch,q,by:me.uid,t:now,t0:d.t0||now,n,done:false,td:d.td||null};
+ counts[k]=doc;clearTimeout(timer);
+ timer=setTimeout(()=>db.doc('inv_counts/'+k).set(doc).then(flash).catch(err),700);
+ $('#pg').style.width=(100*n/items.length)+'%';$('#pt').textContent=n+' / '+items.length;
+}
+function submit(){
+ const k=key(month,branch),d=counts[k];
+ if(!d||!Object.keys(d.q||{}).length){alert('اكتب الجرد الأول');return}
+ const n=Object.keys(d.q).length;
+ if(n<items.length&&!confirm('جردت '+n+' من '+items.length+' صنف. تبعت كده؟'))return;
+ clearTimeout(timer);const now=Date.now();
+ db.doc('inv_counts/'+k).set({...d,m:month,b:branch,by:me.uid,t:now,n,done:true,td:now}).then(()=>{flash();alert('تم إرسال الجرد ✅')}).catch(err);
 }
 function vCount(){
- const q=(counts[key(month,branch)]||{}).q||{},n=Object.keys(q).length;
+ const d=counts[key(month,branch)]||{},q=d.q||{},n=Object.keys(q).length;
  let h='<div class="mut" style="display:flex;justify-content:space-between"><span>تم جرد</span><span id="pt" dir="ltr">'+n+' / '+items.length+'</span></div><div class="pg"><i id="pg" style="width:'+(100*n/items.length)+'%"></i></div>';
- h+='<div class="cats"><button data-c="" class="'+(!cat?'on':'')+'">الكل</button>'+cats().map(c=>'<button data-c="'+esc(c)+'" class="'+(cat===c?'on':'')+'">'+esc(c.trim())+'</button>').join('')+'</div><div class="bar"><input id="qs" placeholder="بحث بالاسم أو الكود" value="'+esc(qs)+'"></div>';
- const L=items.filter(i=>(!cat||i.cat===cat)&&(!qs||(i.name+' '+i.code).toLowerCase().includes(qs.toLowerCase())));
- return h+'<div class="gr">'+(L.slice(0,lim).map(i=>'<div class="card row"><div class="th"'+(src(i)?' data-z="'+i.id+'"><img loading="lazy" src="'+src(i)+'">':'>📦')+'</div><div class="n"><b>'+esc(i.name)+'</b><small>'+esc(i.code)+'</small>'+(isAdmin?'<div><label class="up" for="fi" data-up="'+i.id+'">📷 '+(src(i)?'غيّر':'ضيف')+' الصورة</label></div>':'')+'</div><input class="q" type="number" inputmode="numeric" min="0" data-i="'+i.id+'" value="'+(q[i.id]??'')+'" placeholder="—"></div>').join('')||'<div class="m">مفيش نتايج</div>')+'</div>'+(L.length>lim?'<button class="s" id="more">عرض المزيد ('+(L.length-lim)+')</button>':'');
+ if(d.done)h+='<div class="card"><span class="bd2 ok">✅ اتبعت الجرد '+fmt(d.td)+'</span></div>';
+ h+='<div class="cats"><button data-c="" class="'+(!cat?'on':'')+'">الكل</button>'+cats().map(c=>'<button data-c="'+esc(c)+'" class="'+(cat===c?'on':'')+'">'+esc(c)+'</button>').join('')+'</div><div class="bar"><input id="qs" placeholder="بحث بالاسم أو الكود" value="'+esc(qs)+'"></div>';
+ const L=items.filter(i=>(!cat||i.cat===cat)&&(!qs||(i.name+' '+(i.ar||'')+' '+i.code).toLowerCase().includes(qs.toLowerCase())));
+ h+='<div class="gr">'+(L.slice(0,lim).map(i=>'<div class="card row"><div class="th"'+(src(i)?' data-z="'+i.id+'"><img loading="lazy" src="'+src(i)+'">':'>📦')+'</div><div class="n"><b>'+esc(i.name)+'</b><small>'+(i.ar?esc(i.ar)+' · ':'')+esc(i.code)+'</small>'+(isAdmin?'<div><label class="up" for="fi" data-up="'+i.id+'">📷 '+(src(i)?'غيّر':'ضيف')+' الصورة</label><span class="up" data-ed="'+i.id+'">✏️ تعديل</span></div>':'')+'</div><input class="q" type="number" inputmode="numeric" min="0" data-i="'+i.id+'" value="'+(q[i.id]??'')+'" placeholder="—"></div>').join('')||'<div class="m">مفيش نتايج</div>')+'</div>';
+ if(L.length>lim)h+='<button class="s" id="more" style="margin-top:8px">عرض المزيد ('+(L.length-lim)+')</button>';
+ return h+'<div class="bar" style="margin-top:12px"><button id="sub">إرسال الجرد ✅</button><button class="s" id="xlc">تحميل Excel</button></div>';
+}
+function editItem(id){
+ const it=items.find(x=>x.id===id);if(!it)return;
+ const z=document.createElement('div');z.className='zm';z.style.alignItems='flex-start';
+ z.innerHTML='<div class="card" style="width:min(460px,94%);margin-top:6vh"><h2>تعديل صنف</h2><div class="bar"><input id="e1" placeholder="اسم الصنف" value="'+esc(it.name)+'"><input id="e2" placeholder="الاسم بالعربي" value="'+esc(it.ar||'')+'"><input id="e3" placeholder="الكود" value="'+esc(it.code||'')+'"><input id="e4" list="cl2" placeholder="القسم" value="'+esc(it.cat)+'"><datalist id="cl2">'+cats().map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist></div><div class="bar"><button id="eS">حفظ</button><button class="s" id="eX">إلغاء</button><button class="x" id="eD">حذف الصنف</button></div></div>';
+ document.body.appendChild(z);
+ const close=()=>z.remove();
+ z.querySelector('#eX').onclick=close;
+ z.querySelector('#eS').onclick=()=>{
+  const name=z.querySelector('#e1').value.trim(),ar=z.querySelector('#e2').value.trim(),code=z.querySelector('#e3').value.trim(),c=z.querySelector('#e4').value.trim();
+  if(!name||!c){alert('الاسم والقسم مطلوبين');return}
+  db.doc('inv_cfg/items').set({list:items.map(x=>x.id===id?{...x,name,ar,code,cat:c}:x)}).then(()=>{flash();close()}).catch(err);
+ };
+ z.querySelector('#eD').onclick=()=>{if(confirm('حذف الصنف "'+it.name+'" نهائيًا؟'))db.doc('inv_cfg/items').set({list:items.filter(x=>x.id!==id)}).then(()=>{flash();close()}).catch(err)};
 }
 
-/* الصرف */
+/* ===== صرف / تحويل ===== */
 function vExp(){
- const L=exps.filter(e=>e.m===month&&e.b===branch).sort((a,b)=>b.t-a.t);
- return'<div class="card"><b>سجّل صرف لـ '+esc(bname(branch))+'</b><div class="bar" style="margin-top:8px"><select id="ei">'+cats().map(c=>'<optgroup label="'+esc(c.trim())+'">'+items.filter(i=>i.cat===c).map(i=>'<option value="'+i.id+'">'+esc(i.name)+'</option>').join('')+'</optgroup>').join('')+'</select><input id="eq" type="number" inputmode="numeric" min="1" placeholder="الكمية"><input id="en" placeholder="ملاحظة (اختياري)"></div><button id="addExp">إضافة صرف</button></div>'
- +(L.map(e=>{const it=items.find(i=>i.id===e.i)||{name:e.i};return'<div class="card row"><div class="n"><b>'+esc(it.name)+'</b><small>'+esc(e.n||'')+'</small></div><b>+'+e.q+'</b><button class="x" data-d="'+e.id+'">حذف</button></div>'}).join('')||'<div class="m">مفيش صرف الشهر ده للفرع ده</div>');
+ const L=exps.filter(e=>e.m===month&&(e.b===branch||e.to===branch)).sort((a,b)=>b.t-a.t);
+ const others=branches.filter(b=>b.id!==branch);
+ if(!eto||eto===branch)eto=(others[0]||{}).id||'';
+ let h='<div class="card"><b>'+(etype==='tr'?'تحويل صنف من '+esc(bname(branch)):'سجّل صرف لـ '+esc(bname(branch)))+'</b><div class="bar" style="margin-top:8px"><select id="etype"><option value="ex"'+(etype==='ex'?' selected':'')+'>صرف عدة للفرع</option><option value="tr"'+(etype==='tr'?' selected':'')+'>تحويل لفرع تاني</option></select>';
+ if(etype==='tr')h+='<select id="eto">'+others.map(b=>'<option value="'+b.id+'"'+(b.id===eto?' selected':'')+'>إلى: '+esc(b.name)+'</option>').join('')+'</select>';
+ h+='<select id="ei">'+cats().map(c=>'<optgroup label="'+esc(c)+'">'+items.filter(i=>i.cat===c).map(i=>'<option value="'+i.id+'">'+esc(i.name)+'</option>').join('')+'</optgroup>').join('')+'</select><input id="eq" type="number" inputmode="numeric" min="1" placeholder="الكمية"><input id="en" placeholder="ملاحظة (اختياري)"></div><button id="addExp">'+(etype==='tr'?'تنفيذ التحويل':'إضافة صرف')+'</button></div>';
+ return h+(L.map(e=>{
+  const tr=e.ty==='tr',out=e.b===branch,sign=tr&&out?'-':'+';
+  const lbl=tr?(out?'تحويل إلى '+esc(bname(e.to)):'تحويل من '+esc(bname(e.b))):'صرف';
+  return'<div class="card row"><div class="n"><b>'+esc(iname(e.i))+'</b><small>'+lbl+(e.n?' · '+esc(e.n):'')+' · '+fmt(e.t)+'</small></div><b class="'+(sign==='-'?'neg':'pos')+'">'+sign+e.q+'</b><button class="x" data-d="'+e.id+'">حذف</button></div>'}).join('')||'<div class="m">مفيش حركات الشهر ده للفرع ده</div>');
 }
 function addExp(){
  const i=$('#ei').value,q=Number($('#eq').value),n=$('#en').value.trim();
  if(!i||!(q>0)){alert('اكتب كمية صحيحة');return}
- db.collection('inv_exp').add({m:month,b:branch,i,q,n,t:Date.now()}).then(()=>{flash();$('#eq').value='';$('#en').value=''}).catch(err);
+ const doc={m:month,b:branch,i,q,n,t:Date.now(),by:me.uid};
+ if(etype==='tr'){const to=$('#eto')&&$('#eto').value;if(!to||to===branch){alert('اختار فرع تاني');return}doc.ty='tr';doc.to=to}
+ db.collection('inv_exp').add(doc).then(()=>{flash();$('#eq').value='';$('#en').value=''}).catch(err);
 }
 
-/* التقرير */
-function calc(){
- const B=branch==='*'?branches.map(b=>b.id):[branch],pm=prevM(month),R=[],missing=B.filter(b=>!counts[key(month,b)]).map(bname);
+/* ===== التقرير ===== */
+function calc(B){
+ const pm=prevM(month),R=[],ex=exps.filter(e=>e.m===month);
  items.forEach(it=>{
-  let op=0,iss=0,act=0,diff=0,has=false,cmp=false;
+  let op=0,iss=0,tr=0,act=0,diff=0,has=false,cmp=false;
   B.forEach(b=>{
    const c=(counts[key(month,b)]||{}).q||{},p=(counts[key(pm,b)]||{}).q||{};
-   const s=exps.filter(e=>e.m===month&&e.b===b&&e.i===it.id).reduce((x,e)=>x+e.q,0);iss+=s;
+   let s=0,t=0;
+   ex.forEach(e=>{if(e.i!==it.id)return;if(e.ty==='tr'){if(e.to===b)t+=e.q;if(e.b===b)t-=e.q}else if(e.b===b)s+=e.q});
+   iss+=s;tr+=t;
    if(c[it.id]!==undefined){has=true;act+=c[it.id]}
    if(p[it.id]!==undefined)op+=p[it.id];
-   if(c[it.id]!==undefined&&p[it.id]!==undefined){cmp=true;diff+=c[it.id]-(p[it.id]+s)}
+   if(c[it.id]!==undefined&&p[it.id]!==undefined){cmp=true;diff+=c[it.id]-(p[it.id]+s+t)}
   });
-  if(has||iss||op)R.push({it,op,iss,act,diff:cmp?diff:null,has});
+  if(has||iss||tr||op)R.push({it,op,iss,tr,act,diff:cmp?diff:null,has});
  });
- return{R,missing};
+ return R;
 }
+const sel=()=>branch==='*'?branches.map(b=>b.id):[branch];
 function vRep(){
- const{R,missing}=calc(),bad=R.filter(r=>r.diff!==null&&r.diff<0),tot=bad.reduce((s,r)=>s+r.diff,0);
+ const B=sel(),R=calc(B),missing=B.filter(b=>!counts[key(month,b)]).map(bname);
+ const bad=R.filter(r=>r.diff!==null&&r.diff<0),tot=bad.reduce((s,r)=>s+r.diff,0);
  let h='<div class="sum"><div><b class="neg">'+bad.length+'</b><span class="mut">أصناف فيها عجز</span></div><div><b class="neg">'+tot+'</b><span class="mut">إجمالي العجز</span></div><div><b>'+R.filter(r=>r.has).length+'</b><span class="mut">أصناف اتجردت</span></div></div>';
  if(missing.length)h+='<div class="card mut">لسه ما جردوش الشهر ده: '+esc(missing.join('، '))+'</div>';
  h+='<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="od" style="width:auto"'+(onlyDiff?' checked':'')+'> اعرض الأصناف اللي فيها فرق بس</label>';
  const rows=R.filter(r=>!onlyDiff||(r.diff!==null&&r.diff!==0));
- h+='<div class="card tw"><table><tr><th>الصنف</th><th>الشهر اللي فات</th><th>صرف</th><th>الجرد</th><th>الفرق</th></tr>'+rows.map(r=>'<tr class="'+(r.diff!==null&&r.diff<0?'bad':'')+'"><td>'+esc(r.it.name)+'</td><td>'+r.op+'</td><td>'+r.iss+'</td><td>'+(r.has?r.act:'—')+'</td><td class="'+(r.diff<0?'neg':r.diff>0?'pos':'')+'"><b>'+(r.diff===null?'—':(r.diff>0?'+':'')+r.diff)+'</b></td></tr>').join('')+'</table></div>';
- return h+'<div class="mut" style="margin:6px 0">الفرق = الجرد − (الشهر اللي فات + الصرف). سالب = عجز أو كسر. بيتحسب بس لو الصنف اتجرد الشهرين.</div><button class="s" id="csv">تحميل Excel (CSV)</button>';
-}
-function csv(){
- const{R}=calc(),l=['الصنف,الكود,الشهر اللي فات,صرف,الجرد,الفرق'].concat(R.map(r=>[JSON.stringify(r.it.name),r.it.code,r.op,r.iss,r.has?r.act:'',r.diff===null?'':r.diff].join(',')));
- const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+l.join('\n')],{type:'text/csv'}));a.download='report-'+month+'.csv';a.click();
+ h+='<div class="card tw"><table><tr><th>الصنف</th><th>الشهر اللي فات</th><th>صرف</th><th>تحويل</th><th>الجرد</th><th>الفرق</th></tr>'+rows.map(r=>'<tr class="'+(r.diff!==null&&r.diff<0?'bad':'')+'"><td>'+esc(r.it.name)+(r.it.ar?'<br><small>'+esc(r.it.ar)+'</small>':'')+'</td><td>'+r.op+'</td><td>'+r.iss+'</td><td>'+(r.tr>0?'+':'')+r.tr+'</td><td>'+(r.has?r.act:'—')+'</td><td class="'+(r.diff<0?'neg':r.diff>0?'pos':'')+'"><b>'+(r.diff===null?'—':(r.diff>0?'+':'')+r.diff)+'</b></td></tr>').join('')+'</table></div>';
+ return h+'<div class="mut" style="margin:6px 0">الفرق = الجرد − (الشهر اللي فات + الصرف + التحويل). سالب = عجز أو كسر. بيتحسب بس لو الصنف اتجرد الشهرين.</div><button class="s" id="xlr">تحميل التقرير Excel</button>';
 }
 
-/* الإعدادات */
-function vSet(){
- return vUsers()+'<div class="card"><b>استيراد الأصناف والصور</b><div class="mut">مرة واحدة بس: اختار ملف inventory-seed.json. هيستبدل قايمة الأصناف.</div><label class="s" for="fs" style="display:block;text-align:center;padding:9px;border:1px solid var(--bd);border-radius:10px;margin-top:6px;cursor:pointer">اختار الملف</label></div>'
- +'<div class="card"><b>صنف جديد</b><div class="bar" style="margin-top:8px"><input id="ic" list="cl" placeholder="القسم"><datalist id="cl">'+cats().map(c=>'<option value="'+esc(c.trim())+'">').join('')+'</datalist><input id="in" placeholder="اسم الصنف"><input id="ik" placeholder="الكود (اختياري)"></div><button id="addIt">إضافة صنف</button></div>'
- +'<div class="mut">عدد الأصناف: '+items.length+' — الفروع واليوزرز بتتدار من تطبيق المبيعات.</div>';
+/* ===== السجل ===== */
+function logData(){
+ const B=sel(),st=B.map(b=>({b,d:counts[key(month,b)]})),ev=[];
+ st.forEach(s=>{if(!s.d)return;ev.push({t:s.d.t0||s.d.t,x:'بدأ فرع '+bname(s.b)+' الجرد'});if(s.d.done)ev.push({t:s.d.td,x:'فرع '+bname(s.b)+' أرسل جرده ('+s.d.n+' صنف)'})});
+ exps.filter(e=>e.m===month&&(branch==='*'||e.b===branch||e.to===branch)).forEach(e=>{
+  ev.push({t:e.t,x:e.ty==='tr'?'تحويل '+e.q+' × '+iname(e.i)+' من '+bname(e.b)+' إلى '+bname(e.to)+(e.n?' ('+e.n+')':''):'صرف '+e.q+' × '+iname(e.i)+' لفرع '+bname(e.b)+(e.n?' ('+e.n+')':'')})});
+ ev.sort((a,b)=>(b.t||0)-(a.t||0));
+ return{st,ev};
 }
+function vLog(){
+ const{st,ev}=logData();
+ let h='<h2>حالة الجرد</h2>'+st.map(s=>{const d=s.d;
+  const badge=!d?'<span class="bd2 no">لم يجرد</span>':d.done?'<span class="bd2 ok">✅ اتبعت</span>':'<span class="bd2">جزئي '+d.n+' / '+items.length+'</span>';
+  return'<div class="card"><div class="row"><b class="n">'+esc(bname(s.b))+'</b>'+badge+'</div>'+(d?'<small>بدأ: '+fmt(d.t0||d.t)+' · آخر تعديل: '+fmt(d.t)+(d.done?' · أُرسل: '+fmt(d.td):'')+(uname(d.by)?' · بواسطة: '+esc(uname(d.by)):'')+'</small>':'')+'</div>'}).join('');
+ h+='<h2 style="margin-top:14px">الحركة (صرف وتحويل وجرد)</h2><div class="card">'+(ev.map(e=>'<div class="ev"><time>'+fmt(e.t)+'</time><span>'+esc(e.x)+'</span></div>').join('')||'<div class="m">مفيش حركات</div>')+'</div>';
+ return h+'<button class="s" id="xll">تحميل السجل Excel</button>';
+}
+
+/* ===== Excel ===== */
+async function xlsx(file,sheets){
+ await loadX();const wb=XLSX.utils.book_new();
+ sheets.forEach(([n,r,w])=>{const ws=XLSX.utils.aoa_to_sheet(r);if(w)ws['!cols']=w;XLSX.utils.book_append_sheet(wb,ws,String(n).replace(/[\[\]:*?\/\\]/g,'').slice(0,31)||'Sheet')});
+ wb.Workbook={Views:[{RTL:true}]};XLSX.writeFile(wb,file);
+}
+const W=[{wch:20},{wch:12},{wch:38},{wch:26},{wch:12},{wch:10},{wch:12},{wch:10},{wch:10}];
+function exportCount(){
+ const q=(counts[key(month,branch)]||{}).q||{};
+ xlsx('جرد-'+bname(branch)+'-'+month+'.xlsx',[[bname(branch),[['القسم','الكود','الصنف','بالعربي','الكمية']].concat(items.map(i=>[i.cat,i.code||'',i.name,i.ar||'',q[i.id]??''])),W]]).catch(err);
+}
+function exportRep(){
+ const B=sel(),hdr=['القسم','الكود','الصنف','بالعربي','الشهر السابق','صرف','تحويل (صافي)','الجرد','الفرق'];
+ const mk=ids=>calc(ids).map(r=>[r.it.cat,r.it.code||'',r.it.name,r.it.ar||'',r.op,r.iss,r.tr,r.has?r.act:'',r.diff===null?'':r.diff]);
+ const sh=[];
+ if(branch==='*'){
+  sh.push(['مقارنة الفروع',[['القسم','الكود','الصنف','بالعربي'].concat(B.map(bname))].concat(items.map(i=>[i.cat,i.code||'',i.name,i.ar||''].concat(B.map(b=>{const v=((counts[key(month,b)]||{}).q||{})[i.id];return v===undefined?'':v}))))]);
+  sh.push(['إجمالي',[hdr].concat(mk(B)),W]);
+ }
+ B.forEach(b=>sh.push([bname(b),[hdr].concat(mk([b])),W]));
+ xlsx('تقرير-'+(branch==='*'?'كل-الفروع':bname(branch))+'-'+month+'.xlsx',sh).catch(err);
+}
+function exportLog(){
+ const{st,ev}=logData();
+ xlsx('سجل-'+month+'.xlsx',[
+  ['حالة الجرد',[['الفرع','الحالة','عدد الأصناف','بدأ','آخر تعديل','أُرسل','بواسطة']].concat(st.map(s=>[bname(s.b),!s.d?'لم يجرد':s.d.done?'أُرسل':'جزئي',s.d?s.d.n:0,s.d?fmt(s.d.t0||s.d.t):'',s.d?fmt(s.d.t):'',s.d&&s.d.done?fmt(s.d.td):'',s.d?uname(s.d.by):'']))],
+  ['الحركة',[['الوقت','الحدث']].concat(ev.map(e=>[fmt(e.t),e.x])),[{wch:20},{wch:80}]]
+ ]).catch(err);
+}
+function hash(s){let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))|0;return Math.abs(h).toString(36)}
+function parseWB(wb){
+ const out=[];
+ wb.SheetNames.forEach(sn=>{
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});if(!rows.length)return;
+  const h=rows[0].map(x=>String(x).trim().toLowerCase()),f=rx=>h.findIndex(x=>rx.test(x));
+  const d=f(/desc/);let c=f(/^code$/);if(c<0)c=f(/^details?$/);const a=f(/^(name|guid)/);
+  if(d<0)return;
+  rows.slice(1).forEach(r=>{
+   const name=String(r[d]).trim();if(!name)return;
+   let code=c>=0?String(r[c]).trim():'';if(!/^\d+(\.0)?$/.test(code))code='';code=code.replace(/\.0$/,'');
+   out.push({cat:sn.trim(),name,code,ar:a>=0?String(r[a]).trim():''});
+  });
+ });
+ return out;
+}
+function mergeItems(P,replace){
+ const nm=s=>String(s).toLowerCase().replace(/\s+/g,' ').trim();
+ const byC=new Map(),byN=new Map();
+ items.forEach(i=>{if(i.code)byC.set(i.code,i);byN.set(nm(i.cat)+'|'+nm(i.name),i)});
+ const used=new Set(),ids=new Set(),list=[];let add=0,upd=0;
+ P.forEach(p=>{
+  const m=(p.code&&byC.get(p.code))||byN.get(nm(p.cat)+'|'+nm(p.name));
+  if(m&&!used.has(m.id)){used.add(m.id);ids.add(m.id);upd++;list.push({...m,name:p.name,ar:p.ar||m.ar||'',code:p.code||m.code||'',cat:p.cat})}
+  else{add++;let id='x'+hash(p.code||p.cat+'|'+p.name);while(ids.has(id))id+='z';ids.add(id);list.push({id,cat:p.cat,code:p.code,name:p.name,ar:p.ar})}
+ });
+ const keep=replace?[]:items.filter(i=>!used.has(i.id));
+ return{list:[...list,...keep],add,upd,gone:replace?items.length-used.size:0};
+}
+$('#fx').onchange=async e=>{
+ const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{
+  await loadX();const P=parseWB(XLSX.read(await f.arrayBuffer()));
+  if(!P.length)throw new Error('مفيش أصناف في الملف. لازم يكون فيه عمود اسمه Description');
+  const rp=!!($('#rpl')&&$('#rpl').checked),r=mergeItems(P,rp);
+  if(!confirm('في الملف '+P.length+' صنف.\nجديد: '+r.add+' — هيتحدّث: '+r.upd+(rp?' — هيتمسح: '+r.gone:'')+'\nتكمّل؟'))return;
+  await db.doc('inv_cfg/items').set({list:r.list});flash();alert('تم تحديث قايمة الأصناف ✅');
+ }catch(x){err(x)}
+};
+$('#fs').onchange=async e=>{
+ const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{
+  const d=JSON.parse(await f.text());if(!d.items)throw new Error('الملف مش صحيح');
+  if(!confirm('استبدال القايمة بـ '+d.items.length+' صنف؟'))return;
+  await db.doc('inv_cfg/items').set({list:d.items});alert('تم ✅');
+ }catch(x){err(x)}
+};
+
+/* ===== الإعدادات ===== */
 function vUsers(){
- const bo=sel=>'<option value="">— اختار فرع —</option>'+branches.map(b=>'<option value="'+b.id+'"'+(b.id===sel?' selected':'')+'>'+esc(b.name)+'</option>').join('');
+ const bo=s=>'<option value="">— اختار فرع —</option>'+branches.map(b=>'<option value="'+b.id+'"'+(b.id===s?' selected':'')+'>'+esc(b.name)+'</option>').join('');
  return'<div class="card"><h2>المستخدمين</h2>'+users.map(u=>'<div class="card" style="margin:6px 0"><div class="row"><div class="n"><b>'+esc(u.name)+(u.role==='admin'?' (أدمن)':'')+'</b><small>'+esc(u.email)+'</small></div>'+(u.id===me.uid?'':'<button class="x" data-ud="'+u.id+'">إيقاف</button>')+'</div>'+(u.role==='admin'?'':'<select data-ub="'+u.id+'" style="margin-top:6px">'+bo(u.branch)+'</select>')+'<button class="s" data-ur="'+esc(u.email)+'" style="margin-top:6px">إرسال لينك تغيير الباسورد</button></div>').join('')
  +'<b style="display:block;margin-top:10px">مستخدم جديد</b><div class="bar" style="margin-top:6px"><input id="un" placeholder="الاسم"><input id="ue" type="email" placeholder="الإيميل"><input id="up" placeholder="الباسورد (6 أحرف على الأقل)"><select id="ur"><option value="user">يوزر فرع</option><option value="admin">أدمن</option></select><select id="ub">'+bo('')+'</select></div><button id="addU">إنشاء الحساب</button></div>';
 }
 async function addU(){
- const name=$('#un').value.trim(),email=$('#ue').value.trim(),pw=$('#up').value,role=$('#ur').value,branch=$('#ub').value;
+ const name=$('#un').value.trim(),email=$('#ue').value.trim(),pw=$('#up').value,role=$('#ur').value,br=$('#ub').value;
  if(!name||!email||pw.length<6){alert('اكمل الاسم والإيميل وباسورد 6 أحرف على الأقل');return}
- if(role==='user'&&!branch){alert('اختار فرع لليوزر');return}
+ if(role==='user'&&!br){alert('اختار فرع لليوزر');return}
  try{
   const sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');
   const c=await sec.auth().createUserWithEmailAndPassword(email,pw);
-  await db.doc('users/'+c.user.uid).set({name,email,role,branch:role==='user'?branch:''});
+  await db.doc('users/'+c.user.uid).set({name,email,role,branch:role==='user'?br:''});
   await sec.auth().signOut();alert('تم إنشاء الحساب ✅ ابعت للشخص الإيميل والباسورد');
   ['un','ue','up'].forEach(i=>$('#'+i).value='');
  }catch(e){err(e)}
+}
+function vSet(){
+ return vUsers()
+ +'<div class="card"><b>تحديث الأصناف من Excel</b><div class="mut">أي ملف Excel: كل شيت قسم، وفيه أعمدة Description و Code و Name (بالعربي). الأصناف المتطابقة (بالكود أو الاسم) بتتحدّث بنفس الجرد، والجديدة بتتضاف.</div><label class="ck" style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="rpl" style="width:auto"> استبدال القايمة (يمسح الأصناف اللي مش في الملف)</label><label class="btn" for="fx">اختار ملف Excel</label></div>'
+ +'<div class="card"><b>ملف الأصناف الجاهز</b><div class="mut">لو بعتلك ملف inventory-seed.json.</div><label class="btn" for="fs">اختار الملف</label></div>'
+ +'<div class="card"><b>صنف جديد</b><div class="bar" style="margin-top:8px"><input id="ic" list="cl" placeholder="القسم"><datalist id="cl">'+cats().map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist><input id="in" placeholder="اسم الصنف"><input id="ik" placeholder="الكود (اختياري)"></div><button id="addIt">إضافة صنف</button></div>'
+ +'<div class="mut">عدد الأصناف: '+items.length+'</div>';
 }
 function addIt(){
  const c=$('#ic').value.trim(),n=$('#in').value.trim(),k=$('#ik').value.trim();
  if(!c||!n){alert('القسم والاسم مطلوبين');return}
  db.doc('inv_cfg/items').set({list:[...items,{id:'n'+Date.now().toString(36),cat:c,code:k,name:n}]}).then(()=>{flash();['ic','in','ik'].forEach(i=>$('#'+i).value='')}).catch(err);
 }
-let upId='';
 async function shrink(f){const b=await createImageBitmap(f),s=Math.min(1,180/Math.max(b.width,b.height)),c=document.createElement('canvas');c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.72)}
 $('#fi').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f||!upId)return;try{const d=await shrink(f);await db.doc('inv_imgs/u').set({[upId]:d},{merge:true});flash()}catch(x){err(x)}};
-$('#fs').onchange=async e=>{
- const f=e.target.files[0];e.target.value='';if(!f)return;
- try{
-  const d=JSON.parse(await f.text());if(!d.items)throw new Error('الملف مش صحيح');
-  if(!confirm('استيراد '+d.items.length+' صنف مع الصور؟'))return;
-  await db.doc('inv_cfg/items').set({list:d.items});
-  alert('تم الاستيراد ✅');
- }catch(x){err(x)}
-};
 </script>
 </body>
 </html>
