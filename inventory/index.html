@@ -88,13 +88,17 @@ auth.onAuthStateChanged(async u=>{
  $('#out').style.display=u?'':'none';
  if(!u){me=null;login();return}
  try{
-  const s=await db.doc('users/'+u.uid).get();
+  let s=await db.doc('inv_users/'+u.uid).get();
+  if(!s.exists){
+   const o=await db.doc('users/'+u.uid).get().catch(()=>null);
+   if(o&&o.exists&&o.data().role==='admin'){await db.doc('inv_users/'+u.uid).set({name:o.data().name||'',email:o.data().email||u.email||'',role:'admin',branch:''});s=await db.doc('inv_users/'+u.uid).get()}
+  }
   if(!s.exists){$('#app').innerHTML='<div class="card">حسابك مش متفعّل. كلم الأدمن.</div>';return}
   me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab='count';
   $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
   if(!isAdmin){branch=me.branch||'';if(!branch){$('#app').innerHTML='<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>';return}}
   const bad=n=>e=>{$('#app').innerHTML='<div class="card">تعذر التحميل ('+n+'): '+esc(e.message)+'<br><span class="mut">الحساب: '+esc(me.email||'')+' — '+(isAdmin?'أدمن':'يوزر فرع: '+esc(me.branch))+'</span></div>'};
-  unsubs.push(db.doc('config/main').onSnapshot(d=>{branches=(d.data()||{}).branches||[];if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad('config')));
+  unsubs.push(db.doc('inv_cfg/branches').onSnapshot(d=>{branches=(d.data()||{}).list||[];if(isAdmin&&!d.exists&&!window._bc){window._bc=1;copyBranches(true)}if(isAdmin&&!branch)branch=(branches[0]||{}).id||'';render()},bad('inv_cfg/branches')));
   unsubs.push(db.doc('inv_cfg/items').onSnapshot(d=>{items=(d.data()||{}).list||[];render()},bad('inv_cfg')));
   unsubs.push(db.doc('inv_imgs/u').onSnapshot(d=>{uimgs=d.data()||{};render()},()=>{}));
   loadImgs();
@@ -102,7 +106,7 @@ auth.onAuthStateChanged(async u=>{
   unsubs.push(cq.onSnapshot(s=>{counts={};s.docs.forEach(d=>counts[d.id]=d.data());render()},bad('inv_counts')));
   if(isAdmin){
    unsubs.push(db.collection('inv_exp').onSnapshot(s=>{exps=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad('inv_exp')));
-   unsubs.push(db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad('users')));
+   unsubs.push(db.collection('inv_users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));render()},bad('inv_users')));
   }
  }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
 });
@@ -123,7 +127,7 @@ function head(){
 function render(){clearTimeout(rt);rt=setTimeout(draw,30)}
 function draw(){
  if(!me)return;
- const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik','un','ue','up'].includes(a.id)))return;
+ const a=document.activeElement;if(a&&(a.classList.contains('q')||['qs','en','eq','ic','in','ik','un','ue','up','bn'].includes(a.id)||a.hasAttribute('data-bn')))return;
  if(tab!=='rep'&&tab!=='log'&&branch==='*')branch=(branches[0]||{}).id||'';
  let h=head();
  if(tab==='set'&&isAdmin)h+=vSet();
@@ -148,12 +152,15 @@ function wire(){
  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{if(confirm('تحذف الحركة دي؟'))db.doc('inv_exp/'+b.dataset.d).delete().catch(err)});
  f('#more',()=>{lim+=40;render()});f('#sub',submit);f('#xlc',exportCount);f('#xlr',exportRep);f('#xll',exportLog);
  f('#addExp',addExp);f('#addIt',addIt);f('#addU',addU);
+ f('#addBr',addBranch);f('#cpB',()=>copyBranches(false));f('#cpU',copyUsers);
+ document.querySelectorAll('[data-bn]').forEach(i=>i.onchange=()=>{const v=i.value.trim();if(v)saveBranches(branches.map(b=>b.id===i.dataset.bn?{...b,name:v}:b))});
+ document.querySelectorAll('[data-bdel]').forEach(x=>x.onclick=()=>{if(confirm('حذف الفرع؟ الجرد القديم بتاعه هيفضل محفوظ بس مش هيظهر.'))saveBranches(branches.filter(b=>b.id!==x.dataset.bdel))});
  const od=$('#od');if(od)od.onchange=()=>{onlyDiff=od.checked;render()};
  const et=$('#etype');if(et)et.onchange=()=>{etype=et.value;render()};
  const eo=$('#eto');if(eo)eo.onchange=()=>{eto=eo.value};
- document.querySelectorAll('[data-ub]').forEach(x=>x.onchange=()=>db.doc('users/'+x.dataset.ub).update({branch:x.value}).then(flash).catch(err));
+ document.querySelectorAll('[data-ub]').forEach(x=>x.onchange=()=>db.doc('inv_users/'+x.dataset.ub).update({branch:x.value}).then(flash).catch(err));
  document.querySelectorAll('[data-ur]').forEach(x=>x.onclick=()=>auth.sendPasswordResetEmail(x.dataset.ur).then(()=>alert('اتبعت لينك تغيير الباسورد')).catch(err));
- document.querySelectorAll('[data-ud]').forEach(x=>x.onclick=()=>{if(confirm('إيقاف الحساب؟'))db.doc('users/'+x.dataset.ud).delete().catch(err)});
+ document.querySelectorAll('[data-ud]').forEach(x=>x.onclick=()=>{if(confirm('إيقاف الحساب؟'))db.doc('inv_users/'+x.dataset.ud).delete().catch(err)});
 }
 
 /* ===== الجرد ===== */
@@ -345,6 +352,27 @@ $('#fs').onchange=async e=>{
 };
 
 /* ===== الإعدادات ===== */
+const saveBranches=l=>db.doc('inv_cfg/branches').set({list:l}).then(flash).catch(err);
+function addBranch(){const n=$('#bn').value.trim();if(!n)return;saveBranches([...branches,{id:'b'+Date.now().toString(36),name:n}])}
+async function copyBranches(auto){
+ try{
+  const d=await db.doc('config/main').get(),l=(d.data()||{}).branches||[];
+  if(!l.length){if(!auto)alert('مفيش فروع في المبيعات');return}
+  if(!auto&&!confirm('استبدال فروع الجرد بـ '+l.length+' فرع من المبيعات؟'))return;
+  await db.doc('inv_cfg/branches').set({list:l.map(b=>({id:b.id,name:b.name}))});flash();
+ }catch(e){if(!auto)err(e)}
+}
+async function copyUsers(){
+ try{
+  const s=await db.collection('users').get(),b=db.batch();let n=0;
+  s.docs.forEach(d=>{if(d.id===me.uid)return;const x=d.data();b.set(db.doc('inv_users/'+d.id),{name:x.name||'',email:x.email||'',role:x.role||'user',branch:x.branch||''});n++});
+  await b.commit();alert('اتنسخ '+n+' يوزر ✅');
+ }catch(e){err(e)}
+}
+function vBranches(){
+ return'<div class="card"><h2>الفروع</h2>'+(branches.map(b=>'<div class="row" style="margin-bottom:6px"><input data-bn="'+b.id+'" value="'+esc(b.name)+'"><button class="x" data-bdel="'+b.id+'">حذف</button></div>').join('')||'<div class="mut">مفيش فروع لسه</div>')+'<div class="bar" style="margin-top:8px"><input id="bn" placeholder="اسم فرع جديد"><button id="addBr">إضافة فرع</button></div></div>'
+ +'<div class="card"><b>نقل من تطبيق المبيعات (مرة واحدة)</b><div class="mut">بينسخ الفروع واليوزرز الحالية للجرد، وبعدها بقوا مستقلين تمامًا عن المبيعات.</div><div class="bar" style="margin-top:6px"><button class="s" id="cpB">نسخ الفروع</button><button class="s" id="cpU">نسخ اليوزرز</button></div></div>';
+}
 function vUsers(){
  const bo=s=>'<option value="">— اختار فرع —</option>'+branches.map(b=>'<option value="'+b.id+'"'+(b.id===s?' selected':'')+'>'+esc(b.name)+'</option>').join('');
  return'<div class="card"><h2>المستخدمين</h2>'+users.map(u=>'<div class="card" style="margin:6px 0"><div class="row"><div class="n"><b>'+esc(u.name)+(u.role==='admin'?' (أدمن)':'')+'</b><small>'+esc(u.email)+'</small></div>'+(u.id===me.uid?'':'<button class="x" data-ud="'+u.id+'">إيقاف</button>')+'</div>'+(u.role==='admin'?'':'<select data-ub="'+u.id+'" style="margin-top:6px">'+bo(u.branch)+'</select>')+'<button class="s" data-ur="'+esc(u.email)+'" style="margin-top:6px">إرسال لينك تغيير الباسورد</button></div>').join('')
@@ -357,13 +385,13 @@ async function addU(){
  try{
   const sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');
   const c=await sec.auth().createUserWithEmailAndPassword(email,pw);
-  await db.doc('users/'+c.user.uid).set({name,email,role,branch:role==='user'?br:''});
+  await db.doc('inv_users/'+c.user.uid).set({name,email,role,branch:role==='user'?br:''});
   await sec.auth().signOut();alert('تم إنشاء الحساب ✅ ابعت للشخص الإيميل والباسورد');
   ['un','ue','up'].forEach(i=>$('#'+i).value='');
  }catch(e){err(e)}
 }
 function vSet(){
- return vUsers()
+ return vBranches()+vUsers()
  +'<div class="card"><b>تحديث الأصناف من Excel</b><div class="mut">أي ملف Excel: كل شيت قسم، وفيه أعمدة Description و Code و Name (بالعربي). الأصناف المتطابقة (بالكود أو الاسم) بتتحدّث بنفس الجرد، والجديدة بتتضاف.</div><label class="ck" style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="rpl" style="width:auto"> استبدال القايمة (يمسح الأصناف اللي مش في الملف)</label><label class="btn" for="fx">اختار ملف Excel</label></div>'
  +'<div class="card"><b>ملف الأصناف الجاهز</b><div class="mut">لو بعتلك ملف inventory-seed.json.</div><label class="btn" for="fs">اختار الملف</label></div>'
  +'<div class="card"><b>صنف جديد</b><div class="bar" style="margin-top:8px"><input id="ic" list="cl" placeholder="القسم"><datalist id="cl">'+cats().map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist><input id="in" placeholder="اسم الصنف"><input id="ik" placeholder="الكود (اختياري)"></div><button id="addIt">إضافة صنف</button></div>'
