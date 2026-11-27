@@ -81,12 +81,12 @@ auth.onAuthStateChanged(async u=>{
   try{
     const s=await db.doc('users/'+u.uid).get();
     if(!s.exists){$('#app').innerHTML='<div class="card">حسابك مش متفعّل. كلم الأدمن.</div>';return}
-    me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab=isAdmin?'tot':'entry';
+    me={uid:u.uid,...s.data()};isAdmin=me.role==='admin';tab=isAdmin?'tot':(userTabs()[0]||['entry'])[0];
     $('#role').textContent=isAdmin?'(أدمن)':'(يوزر)';
     unsubs.push(db.doc('config/main').onSnapshot(d=>{if(d.exists)cfg=Object.assign({branches:[],targets:{}},d.data());render()}));
     if(isAdmin)unsubs.push(db.collection('users').onSnapshot(q=>{users=q.docs.map(d=>({uid:d.id,...d.data()}));if(tab==='set')render()}));
     if(isAdmin)unsubs.push(db.collection('headcount').onSnapshot(q=>{hcErr='';q.docChanges().forEach(ch=>{if(ch.type==='removed')delete hc[ch.doc.id];else hc[ch.doc.id]=ch.doc.data()});if(tab==='hc')render()},e=>{hcErr=e.message||'error';if(tab==='hc')render()}));
-    else if(me.branch)unsubs.push(db.doc('headcount/'+me.branch).onSnapshot(d=>{hcErr='';if(d.exists)hc[me.branch]=d.data();else delete hc[me.branch];if(tab==='hc')render()},e=>{hcErr=e.message||'error';if(tab==='hc')render()}));
+    else if(can('hc'))myB().forEach(bid=>unsubs.push(db.doc('headcount/'+bid).onSnapshot(d=>{hcErr='';if(d.exists)hc[bid]=d.data();else delete hc[bid];if(tab==='hc')render()},e=>{hcErr=e.message||'error';if(tab==='hc')render()})));
     sub();
   }catch(e){$('#app').textContent='تعذر التحميل: '+e.message}
 });
@@ -103,10 +103,19 @@ function doLogin(){
   auth.signInWithEmailAndPassword($('#le').value.trim(),$('#lp').value).catch(err).finally(()=>{clearTimeout(t);b.disabled=false;b.textContent='دخول'})
 }
 const forgot=()=>{const e=$('#le').value.trim();if(!e){alert('اكتب الإيميل الأول');return}auth.sendPasswordResetEmail(e).then(()=>alert('اتبعتلك لينك تغيير الباسورد على الإيميل')).catch(err)};
-function sub(){if(unsubS)unsubS();unsubS=db.collection('sales').where('month','==',month).onSnapshot(s=>{rows=s.docs.map(d=>d.data());render()},e=>{$('#app').textContent='تعذر قراءة المبيعات'})}
+let unsubS2=[],rowsB={},salesErr='';
+function sub(){
+  if(unsubS)unsubS();unsubS2.forEach(f=>f());unsubS2=[];rowsB={};
+  if(isAdmin){unsubS=db.collection('sales').where('month','==',month).onSnapshot(s=>{rows=s.docs.map(d=>d.data());render()},e=>{$('#app').textContent='تعذر قراءة المبيعات'});return}
+  if(!can('sv')||!myB().length){rows=[];render();return}
+  myB().forEach(bid=>unsubS2.push(db.collection('sales').where('branch','==',bid).where('month','==',month).onSnapshot(s=>{salesErr='';rowsB[bid]=s.docs.map(d=>d.data());rows=[].concat(...Object.values(rowsB));render()},e=>{salesErr=e.message||'error';render()})))
+}
 const saveCfg=()=>db.doc('config/main').set(cfg).catch(err);
 const GN={ovio:'Ovio',little:'Little Ovio'};
-const gb=()=>cfg.branches.filter(b=>(b.group||'ovio')===grp);
+const myB=()=>me&&Array.isArray(me.branches)?me.branches:(me&&me.branch?[me.branch]:[]);
+const can=p=>isAdmin||!me||!Array.isArray(me.perms)||me.perms.includes(p);
+const gb=()=>isAdmin?cfg.branches.filter(b=>(b.group||'ovio')===grp):cfg.branches.filter(b=>myB().includes(b.id));
+const gtitle=()=>isAdmin?GN[grp]:'فروعك';
 const gset=()=>new Set(gb().map(b=>b.id));
 const bFull=b=>GN[b.group||'ovio']+' · '+b.name;
 const bName=id=>(cfg.branches.find(b=>b.id===id)||{name:'؟'}).name;
@@ -179,7 +188,7 @@ function chartChannels(c){
 }
 function total(){
   const c=calc('all');
-  return `<div class="grid">${card('إجمالي '+GN[grp],c)}<div class="card"><h2>مبيعات كل يوم مقابل التارجت</h2>${chartDaily(c)}</div></div>
+  return `<div class="grid">${card('إجمالي '+gtitle(),c)}<div class="card"><h2>مبيعات كل يوم مقابل التارجت</h2>${chartDaily(c)}</div></div>
   <div class="card"><h2>التراكمي مقابل التارجت والتوقع</h2>${chartCum(c)}</div>
   <div class="grid"><div class="card"><h2>المحقق والمتوقع لكل فرع</h2>${chartBranches()}</div><div class="card"><h2>توزيع المبيعات حسب القناة</h2>${chartChannels(c)}</div></div>`
 }
@@ -195,7 +204,7 @@ function daily(b){
   return `<div class="card sc"><table><thead><tr><th>اليوم</th><th>المبيعات</th><th>الفواتير</th><th>متوسط الفاتورة</th><th>تارجت اليوم</th><th>الفرق</th><th>% اليوم</th><th>تراكمي</th><th>تارجت تراكمي</th><th>% تراكمي</th><th>عجز / (+زيادة) تراكمي</th></tr></thead><tbody>${h||'<tr><td colspan="11">لا توجد بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td>${N(c.S)}</td><td>${N(c.I)}</td><td>${N(c.ticket,1)}</td><td colspan="3"></td><td>${N(c.S)}</td><td>${c.T?N(dT):'—'}</td><td class="${cls(c.pct)}">${P(c.S&&dT?c.S/dT*100:NaN)}</td><td class="${dd>0?'bad':'ok'}">${c.T?(dd>0?N(dd):'+'+N(-dd)):'—'}</td></tr></tfoot></table></div>`
 }
 function entry(){
-  const bs=isAdmin?gb():cfg.branches.filter(b=>b.id===me.branch);
+  const bs=gb();
   if(!bs.length)return `<div class="card">${isAdmin?'ابدأ بإضافة الفروع من تبويب الإعدادات.':'حسابك مش مربوط بفرع. كلم الأدمن.'}</div>`;
   return `<div class="card"><h2>إدخال مبيعات يوم</h2><div class="row">
   <div class="f"><label>الفرع</label><select id="eb">${bs.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')}</select></div>
@@ -207,7 +216,7 @@ function entry(){
   <div class="kv"><span>إجمالي الفواتير</span><b id="en">0</b></div>
   <div class="kv"><span>متوسط الفاتورة</span><b id="ea">—</b></div>
   <p class="mut">إدخال نفس اليوم تاني بيعدّل القديم.</p>
-  <button class="p" onclick="saveE()">حفظ</button></div>${isAdmin?'':daily(me.branch)+card('أداء فرعي',calc(me.branch))}`
+  <button class="p" onclick="saveE()">حفظ</button></div>`
 }
 function av(){let S=0,Nn=0;CH.forEach(k=>{S+=+$('#s_'+k).value||0;Nn+=+$('#n_'+k).value||0});
   $('#et').textContent=N(S);$('#en').textContent=N(Nn);$('#ea').textContent=Nn?N(S/Nn,1):'—'}
@@ -230,26 +239,26 @@ function settings(){
   <div class="card"><h2>إنشاء حساب جديد</h2>
   <div class="row"><div class="f"><label>الاسم</label><input id="un"></div><div class="f"><label>الإيميل</label><input id="ue" type="email"></div></div>
   <div class="row" style="margin-top:6px"><div class="f"><label>الباسورد (6+ أحرف)</label><input id="up" type="text"></div>
-  <div class="f"><label>الصلاحية</label><select id="ur"><option value="user">يوزر</option><option value="admin">أدمن</option></select></div>
-  <div class="f"><label>الفرع (لليوزر)</label><select id="ub"><option value="">—</option>${bo}</select></div></div>
+  <div class="f"><label>الدور</label><select id="ur"><option value="user">يوزر (بصلاحيات محددة)</option><option value="admin">أدمن (كل حاجة)</option></select></div></div>
+  ${permBox('new',null)}
   <button class="p" style="margin-top:8px" onclick="addU()">إنشاء الحساب</button></div>
-  <div class="card"><h2>الحسابات</h2>${users.map(u=>`<div class="kv" style="flex-wrap:wrap"><span>${u.name||''}<br><span class="mut">${u.email||''}</span></span>
-  <span class="row"><select style="width:90px" onchange="updU('${u.uid}',{role:this.value})"><option value="user" ${u.role==='user'?'selected':''}>يوزر</option><option value="admin" ${u.role==='admin'?'selected':''}>أدمن</option></select>
-  <select style="width:110px" onchange="updU('${u.uid}',{branch:this.value})"><option value="">—</option>${cfg.branches.map(b=>`<option value="${b.id}" ${u.branch===b.id?'selected':''}>${bFull(b)}</option>`).join('')}</select>
-  <button class="sm" onclick="resetU('${u.email}')">باسورد</button><button class="sm" onclick="delU('${u.uid}')">إيقاف</button></span></div>`).join('')||'<span class="mut">لا يوجد</span>'}</div>`
+  <div class="card"><h2>الحسابات</h2>${users.map(u=>`<div class="kv" style="flex-wrap:wrap"><span>${hesc(u.name)}<br><span class="mut">${hesc(u.email)}</span><br><span class="mut">${uSum(u)}</span></span>
+  <span class="row"><button class="sm" onclick="uedit='${u.uid}';render()">الصلاحيات</button><button class="sm" onclick="resetU('${u.email}')">باسورد</button><button class="sm" onclick="delU('${u.uid}')">إيقاف</button></span></div>
+  ${uedit===u.uid?`<div class="card" style="background:var(--card2)"><div class="f"><label>الدور</label><select id="ured"><option value="user" ${u.role==='user'?'selected':''}>يوزر (بصلاحيات محددة)</option><option value="admin" ${u.role==='admin'?'selected':''}>أدمن (كل حاجة)</option></select></div>${permBox('e',u)}<div class="row" style="margin-top:8px"><button class="p" onclick="saveU('${u.uid}')">حفظ</button><button onclick="uedit=null;render()">إلغاء</button></div></div>`:''}`).join('')||'<span class="mut">لا يوجد</span>'}</div>`
 }
 function addB(){const n=$('#nb').value.trim();if(!n)return;cfg.branches.push({id:'b'+Date.now(),name:n,group:grp});saveCfg()}
 function delB(id){if(!confirm('حذف الفرع؟ (البيانات القديمة هتفضل محفوظة)'))return;cfg.branches=cfg.branches.filter(b=>b.id!==id);saveCfg()}
 function setT(id,v){(cfg.targets[month]=cfg.targets[month]||{})[id]=+v;saveCfg()}
 async function addU(){
-  const name=$('#un').value.trim(),email=$('#ue').value.trim(),pw=$('#up').value,role=$('#ur').value,branch=$('#ub').value;
+  const name=$('#un').value.trim(),email=$('#ue').value.trim(),pw=$('#up').value,role=$('#ur').value;
   if(!name||!email||pw.length<6){alert('اكمل الاسم والإيميل وباسورد 6 أحرف على الأقل');return}
-  if(role==='user'&&!branch){alert('اختار فرع لليوزر');return}
+  let perms=[],branches=[];
+  if(role==='user'){({perms,branches}=readPerm('new'));if(!perms.length||!branches.length){alert('اختار صلاحية واحدة على الأقل وفرع واحد على الأقل');return}}
   let sec;
   try{
     sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');
     const c=await sec.auth().createUserWithEmailAndPassword(email,pw);
-    await db.doc('users/'+c.user.uid).set({name,email,role,branch:role==='user'?branch:''});
+    await db.doc('users/'+c.user.uid).set({name,email,role,branches,branch:branches[0]||'',perms});
     await sec.auth().signOut();alert('تم إنشاء الحساب ✅ ابعت للشخص الإيميل والباسورد');
     ['un','ue','up'].forEach(i=>$('#'+i).value='')
   }catch(e){err(e)}
@@ -468,9 +477,9 @@ function hcAll(){
 }
 const hst=(a,r)=>!r?'—':a<r?`<span class="bad">عجز ${r-a}</span>`:a>r?`<span class="warn">زيادة ${a-r}</span>`:'<span class="ok">مكتمل</span>';
 function hcTotal(){
-  if(!gb().length)return `<div class="card">مفيش فروع في ${GN[grp]}.</div>`;
+  if(!gb().length)return `<div class="card">مفيش فروع في ${gtitle()}.</div>`;
   const{rs,T}=hcAll(),cov=T.req?T.act/T.req*100:NaN;
-  const kpi=`<div class="card"><h2>إجمالي ${GN[grp]}</h2>
+  const kpi=`<div class="card"><h2>إجمالي ${gtitle()}</h2>
   <div class="kv"><span>عدد الموظفين الحالي</span><b>${N(T.act)}</b></div>
   <div class="kv"><span>المطلوب</span><b>${T.req?N(T.req):'—'}</b></div>
   <div class="kv"><span>العجز</span><b class="${T.short?'bad':'ok'}">${T.req?N(T.short):'—'}</b></div>
@@ -549,7 +558,12 @@ async function hcImport(inp,bid){
 }
 function hcView(){
   const note=hcErr?`<div class="card"><b class="bad">مش قادر أقرأ بيانات الـ Headcount.</b><p class="mut">${hesc(hcErr)} · حسابك: ${me.role}</p><p class="mut">لازم تنشر قواعد Firestore الجديدة (ملف firestore.rules) في نفس مشروع Ovio sales وتدوس Publish، وبعدها اعمل Refresh.</p></div>`:'';
-  if(!isAdmin)return `${note}${me.branch?hcBranch(me.branch,true):'<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>'}`;
+  if(!isAdmin){
+    const ub=gb();if(!ub.length)return `${note}<div class="card">حسابك مش مربوط بفرع. كلم الأدمن.</div>`;
+    if(ub.length===1||(hb!=='all'&&!ub.some(b=>b.id===hb)))hb=ub[0].id;
+    const uc=ub.length>1?`<div class="tabs"><button class="${hb==='all'?'on':''}" onclick="hb='all';render()">الإجمالي</button>${ub.map(b=>`<button class="${hb===b.id?'on':''}" onclick="hb='${b.id}';render()">${b.name}</button>`).join('')}</div>`:'';
+    return `${note}${uc}${hb==='all'?hcTotal():hcBranch(hb,true)}`
+  }
   const bs=gb();if(hb!=='all'&&!bs.some(b=>b.id===hb))hb='all';
   const chips=`<div class="tabs"><button class="${hb==='all'?'on':''}" onclick="hb='all';hedit=null;render()">الإجمالي</button>${bs.map(b=>`<button class="${hb===b.id?'on':''}" onclick="hb='${b.id}';hedit=null;render()">${b.name}</button>`).join('')}</div>`;
   return `${note}${chips}${hb==='all'?hcTotal():hcBranch(hb)}`
@@ -587,7 +601,7 @@ function hcEmpRows(list,withB){
   return list.slice().sort((a,b)=>(a.bn||'').localeCompare(b.bn||'')||HT.indexOf(a.title)-HT.indexOf(b.title)||String(a.no).localeCompare(String(b.no),undefined,{numeric:true})).map(e=>[...(withB?[e.bn]:[]),e.no,e.name,e.title||'بدون وظيفة',e.note||''])
 }
 function hcExp(){
-  const g=GN[grp],bid=isAdmin?hb:me.branch;
+  const g=gtitle(),bid=hb;
   if(bid&&bid!=='all'){
     const c=hcCalc(bid),n=bName(bid);
     return{title:`Headcount — ${n}`,file:`headcount-${n}`,sheets:[
@@ -604,7 +618,7 @@ function hcExp(){
     {name:'كل الموظفين',rows:[['الفرع','الرقم الوظيفي','الاسم','الوظيفة','ملاحظات'],...hcEmpRows(all,true)]}]}
 }
 function expData(){
-  const g=GN[grp];
+  const g=isAdmin?GN[grp]:'فروعك';
   if(tab==='tot'||tab==='sum')return{title:`مبيعات ${g} — ${month}`,file:`sales-${grp}-${month}`,sheets:[brSheet(),dailySheet('all'),chSheet()]};
   if(tab==='day'){const n=fb==='all'?g:bName(fb);return{title:`مبيعات ${n} — ${month}`,file:`sales-${n}-${month}`,sheets:[dailySheet(fb),rawSheet(rows.filter(x=>fb==='all'?gset().has(x.branch):x.branch===fb))]}}
   if(tab==='ana'){if(yLoad||yLoaded!==yr||!yd.length){alert('استنى لحد ما بيانات السنة تتحمّل');return null}
@@ -643,19 +657,38 @@ async function expX(kind){
   const r=expData();if(!r)return;
   if(kind==='pdf')pdfPrint(r.title,r.sheets.filter(s=>!s.noPdf));else await xlsxOut(r.file,r.sheets)
 }
+const PERMS=[['sv','يشوف المبيعات'],['se','يدخل المبيعات'],['hc','يشوف Headcount']];
+let uedit=null;
+function userTabs(){const t=[];if(can('sv')){if(myB().length>1)t.push(['tot','الإجمالي']);t.push(['sum','الفروع'],['day','يوم بيوم'])}if(can('se'))t.push(['entry','إدخال']);if(can('hc'))t.push(['hc','Headcount']);return t}
+function permBox(id,u){
+  const pm=u?(Array.isArray(u.perms)?u.perms:['sv','se','hc']):['sv'],br=u?(Array.isArray(u.branches)?u.branches:(u.branch?[u.branch]:[])):[];
+  const L='display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx)';
+  return `<div class="f" style="margin-top:8px"><label>اليوزر يقدر يعمل إيه</label>${PERMS.map(([k,l])=>`<label style="${L}"><input type="checkbox" id="pm_${id}_${k}" style="width:auto" ${pm.includes(k)?'checked':''}>${l}</label>`).join('')}</div>
+  <div class="f" style="margin-top:8px"><label>الفروع اللي يشوفها (ممكن أكتر من فرع)</label>${cfg.branches.map(b=>`<label style="${L}"><input type="checkbox" id="bc_${id}_${b.id}" style="width:auto" ${br.includes(b.id)?'checked':''}>${bFull(b)}</label>`).join('')}</div>`
+}
+const readPerm=id=>({perms:PERMS.map(p=>p[0]).filter(k=>$('#pm_'+id+'_'+k).checked),branches:cfg.branches.map(b=>b.id).filter(i=>$('#bc_'+id+'_'+i).checked)});
+const uSum=u=>{if(u.role==='admin')return 'أدمن (كل حاجة)';const pm=(Array.isArray(u.perms)?u.perms:['sv','se','hc']).map(k=>(PERMS.find(p=>p[0]===k)||[0,k])[1]).join(' · ')||'بدون صلاحيات',br=(Array.isArray(u.branches)?u.branches:(u.branch?[u.branch]:[])).map(bName).join('، ')||'بدون فروع';return pm+' — '+br};
+function saveU(id){
+  const role=$('#ured').value,{perms,branches}=readPerm('e');
+  if(role==='user'&&(!perms.length||!branches.length)){alert('اختار صلاحية واحدة على الأقل وفرع واحد على الأقل');return}
+  if(id===me.uid&&role!=='admin'&&!confirm('هتشيل صلاحية الأدمن من حسابك. متأكد؟'))return;
+  uedit=null;updU(id,{role,perms:role==='user'?perms:[],branches:role==='user'?branches:[],branch:role==='user'?branches[0]:''})
+}
 function render(){
   if(!me)return;
-  if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei|q_|h)/.test(document.activeElement.id))return;
+  if(document.activeElement&&/^(s_|n_|nb|un|ue|up|ei|q_|h|pm_|bc_)/.test(document.activeElement.id))return;
   if(isAdmin&&tab==='ana'&&yLoaded!==yr&&!yLoad){loadY();return}
-  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['ana','مقارنات وتحليل'],['hc','Headcount'],['entry','إدخال'],['set','الإعدادات']]:[['entry','مبيعاتي'],['hc','Headcount']];
+  const T=isAdmin?[['tot','الإجمالي'],['sum','الفروع'],['day','يوم بيوم'],['ana','مقارنات وتحليل'],['hc','Headcount'],['entry','إدخال'],['set','الإعدادات']]:userTabs();
+  if(!isAdmin){if(!T.length){$('#app').innerHTML='<div class="card">حسابك لسه مالوش صلاحيات. كلم الأدمن.</div>';return}if(!T.some(x=>x[0]===tab))tab=T[0][0]}
   const gsw=isAdmin?`<div class="tabs">${Object.keys(GN).map(g=>`<button class="${grp===g?'on':''}" onclick="grp='${g}';fb='all';render()">${GN[g]}</button>`).join('')}</div>`:'';
   const fsel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>الشهر</label><input type="month" value="${month}" onchange="month=this.value||month;sub()"></div>
   ${tab==='day'?`<div class="f"><label>الفرع</label><select onchange="fb=this.value;render()"><option value="all">كل الفروع</option>${gb().map(b=>`<option value="${b.id}" ${fb===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>`:''}</div>`;
   const cy=new Date().getFullYear(),ysel=`<div class="row" style="margin-bottom:10px"><div class="f"><label>السنة</label><select onchange="yr=+this.value;yLoaded=0;loadY()">${[0,1,2,3,4].map(i=>cy-i).map(y=>`<option ${y===yr?'selected':''}>${y}</option>`).join('')}</select></div><div class="f"><label>&nbsp;</label><button onclick="yLoaded=0;loadY()">تحديث البيانات</button></div></div>`;
-  const expBar=(isAdmin?['tot','sum','day','ana','hc']:['hc']).includes(tab)?`<div class="row" style="margin-bottom:10px;justify-content:flex-end"><button class="sm" onclick="expX('xlsx')">⬇ Excel</button>${false?'':'<button class="sm" onclick="expX(\'pdf\')">⬇ PDF</button>'}</div>`:'';
+  const expBar=(isAdmin?['tot','sum','day','ana','hc']:['tot','sum','day','hc']).includes(tab)?`<div class="row" style="margin-bottom:10px;justify-content:flex-end"><button class="sm" onclick="expX('xlsx')">⬇ Excel</button>${false?'':'<button class="sm" onclick="expX(\'pdf\')">⬇ PDF</button>'}</div>`:'';
+  const sNote=!isAdmin&&salesErr&&tab!=='hc'?`<div class="card"><b class="bad">مش قادر أقرأ المبيعات.</b><p class="mut">${hesc(salesErr)}</p></div>`:'';
   const body=tab==='hc'?hcView():tab==='tot'?total():tab==='sum'?summary():tab==='day'?daily(fb):tab==='ana'?analysis():tab==='set'?settings():entry();
   $('#app').className='';
-  $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${expBar}${tab==='hc'?'':tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
+  $('#app').innerHTML=`${gsw}<div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>${sNote}${expBar}${tab==='hc'?'':tab==='ana'?ysel:(tab==='entry'&&!isAdmin?'':fsel)}${body}`;
 }
 </script>
 </body>
